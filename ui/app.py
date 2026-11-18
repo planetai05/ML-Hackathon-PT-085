@@ -261,7 +261,8 @@ with tab_eval:
 
     if eval_results:
         st.divider()
-        agg = eval_results.get("aggregate_metrics", {})
+        agg = eval_results.get("aggregate_metrics") or eval_results
+        trip_list = eval_results.get("per_trip") or eval_results.get("trip_results") or []
 
         st.subheader("📊 Aggregate Benchmark Performance")
         k = st.columns(3) + st.columns(3)
@@ -271,8 +272,9 @@ with tab_eval:
         k[1].metric("Classifier-Only Top-1", pct(agg.get("mean_classifier_top1")))
         k[2].metric("Route Continuity", pct(agg.get("mean_route_continuity")))
         k[3].metric("Route F1 Score", pct(agg.get("mean_route_f1")))
-        k[4].metric("Mean Latency / Trip", f"{agg.get('mean_single_trip_latency_ms', 0):.1f} ms")
-        k[5].metric("Total Run Time", f"{agg.get('total_evaluation_time_s', 0):.1f} s")
+        mean_lat_ms = agg.get("mean_latency_ms") if agg.get("mean_latency_ms") is not None else agg.get("mean_single_trip_latency_ms")
+        k[4].metric("Mean Latency / Trip", f"{(mean_lat_ms or 0):.1f} ms")
+        k[5].metric("Total Run Time", f"{(agg.get('total_evaluation_time_s') or 0):.1f} s")
 
         st.info(f"💻 **Execution Device:** {agg.get('execution_device', dev_info)}")
 
@@ -290,7 +292,7 @@ with tab_eval:
         # Per-trip table
         st.subheader("📋 Per-Trip Evaluation Breakdown")
         table_rows = []
-        for t in eval_results.get("trip_results", []):
+        for t in trip_list:
             table_rows.append({
                 "Trip ID": t["trip_id"],
                 "GPS Points": f"{t.get('n_points', 0):,}",
@@ -307,7 +309,7 @@ with tab_eval:
         # Diagnostic Charts
         st.subheader("📈 Diagnostic Visualizations")
         chart_rows = []
-        for t in eval_results.get("trip_results", []):
+        for t in trip_list:
             if t.get("status") == "ok":
                 chart_rows.append({
                     "Trip": t["trip_id"],
@@ -333,11 +335,11 @@ with tab_eval:
 
         # Interactive Map for evaluated trips
         st.subheader("🗺️ Trip Route Visualizer (Evaluated Archive)")
-        trip_ids = [t["trip_id"] for t in eval_results.get("trip_results", [])]
+        trip_ids = [t["trip_id"] for t in trip_list]
         if trip_ids:
             c_sel, _ = st.columns([2, 2])
             selected_eval_trip_id = c_sel.selectbox("Select trip to inspect on map", trip_ids, index=0)
-            selected_trip = next((t for t in eval_results["trip_results"] if t["trip_id"] == selected_eval_trip_id), None)
+            selected_trip = next((t for t in trip_list if t["trip_id"] == selected_eval_trip_id), None)
             if selected_trip:
                 st.caption("Map displays GPS observations (blue) and ML-predicted route (red). "
                            "Strict ground-truth isolation is enforced; reference routes are evaluated server-side and never exposed.")
