@@ -1,0 +1,7 @@
+{
+  "transition_same_arc": 0.5,
+  "transition_connected_arc": 0.45,
+  "transition_disconnected_penalty": 0.001,
+  "emission_alpha": 1.0,
+  "max_gap_seconds": 10.0
+}
