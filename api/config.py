@@ -23,5 +23,7 @@ class Settings:
     # fall back to mock if the real predictor cannot be loaded (off by default for the demo)
     allow_mock_fallback: bool = field(default_factory=lambda: _bool("PATHSNAP_ALLOW_MOCK_FALLBACK", False))
     warmup: bool = field(default_factory=lambda: _bool("PATHSNAP_WARMUP", True))
+    evaluator_zip: str = field(default_factory=lambda: os.environ.get(
+        "PATHSNAP_EVALUATOR_ZIP", os.path.join("data", "uploads", "evaluator_test.zip")))
     cors_origins: list = field(default_factory=lambda: os.environ.get("PATHSNAP_CORS_ORIGINS", "*").split(","))
     log_file: str = field(default_factory=lambda: os.environ.get("PATHSNAP_LOG_FILE", os.path.join("api", "logs", "requests.log")))

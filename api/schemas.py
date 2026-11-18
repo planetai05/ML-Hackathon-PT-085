@@ -72,3 +72,67 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str
+
+
+class EvaluateZipStartResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running"]
+    message: str
+
+
+class EvaluateZipStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "completed", "failed"]
+    current_trip: Optional[str] = None
+    completed_trips: int
+    total_trips: int
+    progress_pct: float
+    error: Optional[str] = None
+
+
+class TripEvaluationResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    trip_id: str
+    n_points: int
+    classifier_only_top1: Optional[float] = None
+    viterbi_top1: Optional[float] = None
+    route_continuity: Optional[float] = None
+    route_precision: Optional[float] = None
+    route_recall: Optional[float] = None
+    route_f1: Optional[float] = None
+    latency_ms: float
+    status: Literal["ok", "failed"]
+    error: Optional[str] = None
+    gps_points: Optional[list[list[float]]] = None
+    predicted_route_geojson: Optional[dict] = None
+
+
+class EvaluateZipResultsResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    job_id: str
+    status: Literal["completed", "failed"]
+    total_trips: int
+    successful_trips: int
+    failed_trips: int
+    mean_classifier_top1: Optional[float] = None
+    mean_viterbi_top1: Optional[float] = None
+    mean_route_continuity: Optional[float] = None
+    mean_route_f1: Optional[float] = None
+    mean_latency_ms: Optional[float] = None
+    total_evaluation_time_s: float
+    execution_device: str
+    csv_path: Optional[str] = None
+    per_trip: list[TripEvaluationResult]
+    error: Optional[str] = None
+
+
+class EvaluateZipInfoResponse(BaseModel):
+    dataset_name: str
+    zip_path: str
+    exists: bool
+    total_trips: int
+    trips: list[str]
+    execution_device: str
+    active_job_id: Optional[str] = None
+    latest_job_id: Optional[str] = None
+
