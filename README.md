@@ -2,7 +2,9 @@
 
 PathSnap matches noisy 1 Hz GPS points to a road network and reconstructs the vehicle's route.
 
-**Pipeline:** candidate road generation → ML classifier scores each (GPS point, candidate arc) → HMM/Viterbi builds a connected route → FastAPI backend (Laptop 1) + plain HTML/JS UI (Laptop 2).
+**Pipeline:** candidate road generation → ML classifier scores each (GPS point, candidate arc) → HMM/Viterbi builds a connected route → FastAPI backend (Laptop 1) + Streamlit UI (Laptop 2).
+
+**Run the application:** Laptop 1 `scripts\run_api.bat`, Laptop 2 `scripts\run_ui.bat http://<laptop1-ip>:8000`. See `docs/API_UI.md` for endpoints, configuration, and how to plug in the selected model.
 
 ## Project status
 | Part | Owner | Status |
