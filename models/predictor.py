@@ -133,88 +133,8 @@ class Predictor:
 
     def _viterbi_decode(self, trip: Trip, df_cands: pd.DataFrame, n_points: int):
         """Sequential Viterbi decoding over candidate states."""
-        if len(df_cands) == 0:
-            return [None] * n_points, [None] * n_points, [None] * n_points
-
-        point_groups = df_cands.groupby("point_idx")
-        cands_by_point = {int(pt): g for pt, g in point_groups}
-        
-        # Classifier-only argmax per point
-        clf_argmax = [None] * n_points
-        for pt, g in cands_by_point.items():
-            best_idx = g["p"].idxmax()
-            clf_argmax[pt] = int(df_cands.loc[best_idx, "arc_id"])
-            
-        p_same = self.hmm_config.get("transition_same_arc", 0.50)
-        p_conn = self.hmm_config.get("transition_connected_arc", 0.45)
-        p_other = self.hmm_config.get("transition_disconnected_penalty", 0.001)
-        
-        log_same = np.log(max(p_same, 1e-6))
-        log_conn = np.log(max(p_conn, 1e-6))
-        log_other = np.log(max(p_other, 1e-6))
-        
-        af, at = trip.arc_from, trip.arc_to
-        
-        # DP states: list of (states, log_probs)
-        dp = []
-        backpointers = []
-        point_has_cand = []
-        
-        for t in range(n_points):
-            if t not in cands_by_point:
-                point_has_cand.append(False)
-                continue
-                
-            point_has_cand.append(True)
-            g = cands_by_point[t]
-            arcs_t = g.arc_id.to_numpy()
-            probs_t = g.p.to_numpy()
-            emit_t = np.log(np.clip(probs_t, 1e-6, 1.0))
-            
-            if len(dp) == 0:
-                # Initial step
-                dp.append(emit_t)
-                backpointers.append(None)
-            else:
-                prev_probs = dp[-1]
-                prev_arcs = cands_by_point[valid_points[-1]].arc_id.to_numpy()
-                
-                # Compute transition matrix: (prev_len, curr_len)
-                # same arc or to_node == next from_node
-                same_mask = prev_arcs[:, None] == arcs_t[None, :]
-                conn_mask = at[prev_arcs, None] == af[None, arcs_t]
-                
-                trans = np.full((len(prev_arcs), len(arcs_t)), log_other, dtype=float)
-                trans[conn_mask] = log_conn
-                trans[same_mask] = log_same
-                
-                # Viterbi recurrence
-                scores = prev_probs[:, None] + trans  # (prev_len, curr_len)
-                best_prev = np.argmax(scores, axis=0)
-                curr_prob = np.max(scores, axis=0) + emit_t
-                
-                dp.append(curr_prob)
-                backpointers.append(best_prev)
-                
-            valid_points = [i for i, h in enumerate(point_has_cand) if h]
-            
-        # Traceback
-        viterbi_arc = [None] * n_points
-        viterbi_prob = [None] * n_points
-        
-        if len(dp) > 0:
-            curr_best = np.argmax(dp[-1])
-            for step in range(len(dp) - 1, -1, -1):
-                pt = valid_points[step]
-                g = cands_by_point[pt]
-                chosen_arc = int(g.arc_id.iloc[curr_best])
-                chosen_prob = float(g.p.iloc[curr_best])
-                viterbi_arc[pt] = chosen_arc
-                viterbi_prob[pt] = chosen_prob
-                if step > 0:
-                    curr_best = backpointers[step][curr_best]
-                    
-        return viterbi_arc, viterbi_prob, clf_argmax
+        from hmm.viterbi import decode_viterbi
+        return decode_viterbi(trip, df_cands, n_points, self.hmm_config)
 
     def _predict_real(self, trip_dir: str) -> dict:
         t_start = time.perf_counter()
@@ -305,74 +225,8 @@ class Predictor:
         return res
 
     def _score_real(self, pred: dict, trip_dir: str) -> dict:
-        tid = pred["trip_id"]
-        route_file = os.path.join(trip_dir, f"{tid}.route")
-        if not os.path.exists(route_file):
-            raise FileNotFoundError(f"no .route file in {trip_dir}")
-            
-        trip = load_trip(trip_dir, with_route=True)
-        true_arc, aligned, _ = align_route(trip)
-        
-        per_point = pred.get("per_point_arc", [])
-        clf_argmax = pred.get("_clf_argmax", per_point)
-        
-        # 1. Top-1 accuracy (Viterbi)
-        al_mask = aligned & (np.array([a is not None for a in per_point]))
-        if al_mask.any():
-            matched_v = np.array([per_point[i] for i in range(len(per_point)) if al_mask[i]])
-            true_v = true_arc[al_mask]
-            top1_acc = float(np.mean(matched_v == true_v))
-        else:
-            top1_acc = 0.0
-            
-        # 2. Classifier-only Top-1
-        al_mask_clf = aligned & (np.array([a is not None for a in clf_argmax]))
-        if al_mask_clf.any():
-            matched_c = np.array([clf_argmax[i] for i in range(len(clf_argmax)) if al_mask_clf[i]])
-            true_c = true_arc[al_mask_clf]
-            clf_top1 = float(np.mean(matched_c == true_c))
-        else:
-            clf_top1 = 0.0
-            
-        # 3. Route overlap (Precision, Recall, F1)
-        pred_arcs = pred.get("predicted_arcs", [])
-        overlap = route_overlap(pred_arcs, trip.route, trip.arc_len)
-        
-        # 4. Route continuity
-        breaks = np.r_[True, np.diff(np.arange(len(per_point))) > 1]
-        valid_arcs = np.array([a for a in per_point if a is not None], dtype=np.int64)
-        if len(valid_arcs) > 1:
-            rc = continuity(valid_arcs, trip.arc_from, trip.arc_to)
-        else:
-            rc = 1.0
-            
-        # 5. Reference route GeoJSON
-        node_ll = trip.node_ll
-        af, at = trip.arc_from, trip.arc_to
-        ref_coords = []
-        for a in trip.route:
-            seg = [
-                [float(node_ll[af[a], 0]), float(node_ll[af[a], 1])],
-                [float(node_ll[at[a], 0]), float(node_ll[at[a], 1])],
-            ]
-            ref_coords.append(seg)
-            
-        ref_geojson = {
-            "type": "Feature",
-            "properties": {"layer": "reference", "trip_id": tid, "n_arcs": len(trip.route)},
-            "geometry": {"type": "MultiLineString", "coordinates": ref_coords},
-        }
-        
-        return {
-            "top1_accuracy": round(top1_acc, 4),
-            "classifier_only_top1": round(clf_top1, 4),
-            "route_precision": round(overlap["route_precision"], 4),
-            "route_recall": round(overlap["route_recall"], 4),
-            "route_f1": round(overlap["route_f1"], 4),
-            "route_continuity": round(rc, 4),
-            "n_points_aligned": int(aligned.sum()),
-            "reference_route_geojson": ref_geojson,
-        }
+        from evaluation.metrics import score_route
+        return score_route(pred, trip_dir)
 
 
 if __name__ == "__main__":

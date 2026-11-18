@@ -1,0 +1,12 @@
+trip_id,n_points,classifier_only_top1,viterbi_top1,classifier_only_continuity,viterbi_continuity,route_precision,route_recall,route_f1,latency_ms,notes
+00000000,2503,0.9453,0.9549,0.7574,0.9731,0.9692,0.9977,0.9832,991.5,HMM improved Top-1 (+1.0%) and continuity (+21.6%)
+00000007,1354,0.9239,0.9217,0.9906,1.0,0.9815,0.993,0.9872,513.2,HMM improved continuity (+0.9%); Top-1 delta (-0.2%)
+00000009,1049,0.881,0.8695,0.8014,0.9614,0.9041,0.9369,0.9202,429.8,HMM improved continuity (+16.0%); Top-1 delta (-1.1%)
+00000040,2995,0.9157,0.9301,0.8769,0.9865,0.9237,0.9984,0.9596,1264.5,HMM improved Top-1 (+1.4%) and continuity (+11.0%)
+00000052,262,0.9733,0.9656,0.8588,0.9277,0.9845,0.9741,0.9793,126.6,HMM improved continuity (+6.9%); Top-1 delta (-0.8%)
+00000056,3958,0.9074,0.931,0.7758,0.9516,0.9593,0.9797,0.9694,1772.6,HMM improved Top-1 (+2.4%) and continuity (+17.6%)
+00000065,768,0.8359,0.8607,0.8047,0.9789,0.8967,0.9941,0.9429,291.3,HMM improved Top-1 (+2.5%) and continuity (+17.4%)
+00000076,1486,0.8863,0.8984,0.7294,0.9746,0.8734,0.9768,0.9222,719.8,HMM improved Top-1 (+1.2%) and continuity (+24.5%)
+00000077,3911,0.7164,0.7338,0.8637,0.9992,0.7363,1.0,0.8481,1695.6,HMM improved Top-1 (+1.7%) and continuity (+13.5%)
+00000091,874,0.8627,0.8902,0.7128,0.9673,0.9193,0.9805,0.9489,331.7,HMM improved Top-1 (+2.7%) and continuity (+25.5%)
+MEAN,1916,0.8848,0.8956,0.8172,0.972,0.9148,0.9831,0.9461,813.7,HMM boosts mean Top-1 by +1.08% and continuity by +15.48%
