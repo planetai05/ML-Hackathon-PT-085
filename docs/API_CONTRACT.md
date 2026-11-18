@@ -41,7 +41,7 @@ metrics = predictor.score(pred, trip_dir)        # server-side only: reads .rout
 | `route_precision` / `route_recall` / `route_f1` | Length-weighted overlap of `predicted_arcs` and the `.route` arcs |
 | `route_continuity` | Share of consecutive decoded arcs that are connected (`to_node == from_node`) |
 | `n_points_aligned` | Points with a reliable reference label |
-| `reference_route_geojson` | Reference route (`MultiLineString`), only returned **after** prediction, for display |
+| `reference_route_geojson` | Reference route (`MultiLineString`). **Not returned by default** (ground truth stays server-side); only included when the API is started with `PATHSNAP_EXPOSE_REFERENCE=1` (development only) |
 
 See `docs/sample_predict_response.json` for a full example.
 

@@ -184,6 +184,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             except Exception as e:
                 metrics_error = f"{type(e).__name__}: {e}"
                 log.warning("scoring failed for %s: %s", req.trip_id, metrics_error)
+        if metrics and not s.expose_reference:
+            # keep reference (ground-truth) geometry on the server; only scores go to the client
+            metrics = {k: v for k, v in metrics.items() if k != "reference_route_geojson"}
         pred = {k: v for k, v in pred.items() if not k.startswith("_")}
         latency = (time.perf_counter() - t0) * 1000
         m = metrics or {}

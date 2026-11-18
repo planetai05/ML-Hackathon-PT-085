@@ -65,14 +65,9 @@ def _lines(feature):
     return [[(lat, lon) for lon, lat in line] for line in coords if len(line) > 1]
 
 
-def build_map(res: dict, show_ref: bool, show_pts: bool) -> folium.Map:
+def build_map(res: dict, show_pts: bool) -> folium.Map:
     pts = [(p[1], p[0]) for p in res["gps_points"]]
     m = folium.Map(tiles="OpenStreetMap", control_scale=True)
-    if show_ref and res.get("metrics") and res["metrics"].get("reference_route_geojson"):
-        fg = folium.FeatureGroup(name="Reference route (green)")
-        for line in _lines(res["metrics"]["reference_route_geojson"]):
-            folium.PolyLine(line, color="#1a9850", weight=8, opacity=0.55).add_to(fg)
-        fg.add_to(m)
     if show_pts:
         fg = folium.FeatureGroup(name="GPS observations (blue)")
         step = max(1, len(pts) // 1500)  # keep the map responsive for long trips
@@ -123,7 +118,6 @@ with st.sidebar:
         health = None
         st.error(str(e))
     st.header("Map layers")
-    show_ref = st.checkbox("Reference route", value=True)
     show_pts = st.checkbox("GPS points", value=True)
 
 if health is None:
@@ -179,7 +173,7 @@ if res:
 
     left, right = st.columns([5, 2])
     with left:
-        st_folium(build_map(res, show_ref, show_pts), height=560, use_container_width=True, returned_objects=[])
+        st_folium(build_map(res, show_pts), height=560, use_container_width=True, returned_objects=[])
     with right:
         rows = [("Model", meta.get("model_name")), ("Decoder", meta.get("decoder")),
                 ("Route arcs", len(res.get("predicted_arcs", []))), ("Route segments", meta.get("n_segments")),
