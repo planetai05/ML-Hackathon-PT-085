@@ -1,0 +1,14 @@
+numpy
+pandas
+scipy
+pyarrow
+pyproj
+folium
+matplotlib
+networkx
+scikit-learn
+xgboost
+lightgbm
+optuna
+fastapi
+uvicorn
