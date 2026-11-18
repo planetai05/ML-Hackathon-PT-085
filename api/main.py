@@ -20,10 +20,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from api.config import Settings
-from api.schemas import ErrorResponse, HealthResponse, PredictRequest, PredictResponse, TripsResponse
+from api.evaluator import EvaluatorJobManager, detect_execution_device, inspect_evaluator_zip
+from api.schemas import (
+    ErrorResponse,
+    EvaluateZipInfoResponse,
+    EvaluateZipResultsResponse,
+    EvaluateZipStartResponse,
+    EvaluateZipStatusResponse,
+    HealthResponse,
+    PredictRequest,
+    PredictResponse,
+    TripsResponse,
+)
 
 log = logging.getLogger("pathsnap.api")
 
@@ -116,6 +127,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                   description="Map-matching of noisy GPS trips: candidates → classifier → HMM/Viterbi. "
                               "Contract: docs/API_CONTRACT.md", lifespan=lifespan)
     app.state.pathsnap = state
+    evaluator_manager = EvaluatorJobManager()
+    app.state.evaluator_manager = evaluator_manager
     app.add_middleware(CORSMiddleware, allow_origins=s.cors_origins, allow_methods=["*"], allow_headers=["*"])
 
     @app.middleware("http")
@@ -194,6 +207,67 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                  req.trip_id, state.mode, state.model_name, pred.get("n_points"), m.get("top1_accuracy"),
                  m.get("classifier_only_top1"), m.get("route_f1"), latency, request.client.host if request.client else "-")
         return PredictResponse(mode=state.mode, metrics=metrics, metrics_error=metrics_error, api_latency_ms=round(latency, 1), **pred)
+
+    @app.get("/evaluate-zip/info", response_model=EvaluateZipInfoResponse, tags=["evaluator"])
+    def evaluate_zip_info():
+        info = inspect_evaluator_zip(s.evaluator_zip)
+        return EvaluateZipInfoResponse(
+            active_job_id=evaluator_manager.active_job_id,
+            latest_job_id=evaluator_manager.latest_job_id,
+            **info,
+        )
+
+    @app.post("/evaluate-zip", response_model=EvaluateZipStartResponse,
+              responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+              tags=["evaluator"])
+    def start_evaluate_zip():
+        if state.predictor is None:
+            _err(503, "predictor_unavailable", f"No predictor loaded ({state.error or 'unknown error'}).")
+        try:
+            job_id = evaluator_manager.start_job(s.evaluator_zip, state.predictor)
+            return EvaluateZipStartResponse(
+                job_id=job_id,
+                status="queued",
+                message=f"Evaluation job started for {os.path.basename(s.evaluator_zip)}",
+            )
+        except RuntimeError as e:
+            _err(409, "job_already_running", str(e))
+        except FileNotFoundError as e:
+            _err(404, "zip_not_found", str(e))
+
+    @app.get("/evaluate-zip/{job_id}", response_model=EvaluateZipStatusResponse,
+             responses={404: {"model": ErrorResponse}}, tags=["evaluator"])
+    def get_evaluate_zip_status(job_id: str):
+        status = evaluator_manager.get_job_status(job_id)
+        if not status:
+            _err(404, "job_not_found", f"Job '{job_id}' not found")
+        return EvaluateZipStatusResponse(**status)
+
+    @app.get("/evaluate-zip/{job_id}/results", response_model=EvaluateZipResultsResponse,
+             responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}}, tags=["evaluator"])
+    def get_evaluate_zip_results(job_id: str):
+        job = evaluator_manager.get_job_status(job_id)
+        if not job:
+            _err(404, "job_not_found", f"Job '{job_id}' not found")
+        if job["status"] in ("queued", "running"):
+            _err(400, "job_in_progress", f"Job '{job_id}' is still in status '{job['status']}' ({job['progress_pct']}%)")
+        results = evaluator_manager.get_job_results(job_id)
+        if not results:
+            _err(404, "results_not_found", f"No results for job '{job_id}'")
+        return EvaluateZipResultsResponse(**results)
+
+    @app.get("/evaluate-zip/{job_id}/download", responses={404: {"model": ErrorResponse}}, tags=["evaluator"])
+    def download_evaluate_zip_results(job_id: str):
+        csv_path = evaluator_manager.get_job_csv_path(job_id)
+        if not csv_path or not os.path.isfile(csv_path):
+            _err(404, "csv_not_found", f"CSV report for job '{job_id}' not found or not ready yet")
+        filename = os.path.basename(csv_path)
+        return FileResponse(
+            path=csv_path,
+            media_type="text/csv",
+            filename=filename,
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
 
     return app
 

@@ -26,5 +26,7 @@ class Settings:
     # Ground truth stays server-side: the reference route geometry is NOT sent to the UI unless this is
     # explicitly enabled (development/debugging only). Accuracy metrics are always returned.
     expose_reference: bool = field(default_factory=lambda: _bool("PATHSNAP_EXPOSE_REFERENCE", False))
+    evaluator_zip: str = field(default_factory=lambda: os.environ.get(
+        "PATHSNAP_EVALUATOR_ZIP", os.path.join("data", "uploads", "evaluator_test.zip")))
     cors_origins: list = field(default_factory=lambda: os.environ.get("PATHSNAP_CORS_ORIGINS", "*").split(","))
     log_file: str = field(default_factory=lambda: os.environ.get("PATHSNAP_LOG_FILE", os.path.join("api", "logs", "requests.log")))

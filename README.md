@@ -26,7 +26,7 @@ All figures verified against actual runs recorded in `results/hmm_comparison.csv
 - **Route Continuity:** Jumped from 81.72% (classifier-only) to **97.20% (with HMM)**
 - **Length-Weighted Route Overlap F1 Score:** **94.61%**
 - **Mean Single-Trip Processing Latency:** **813.7 ms** (offline) / **1,729 ms** (live HTTP over LAN)
-- **Automated Test Suite:** **55 passed / 55 tests** (`python -m pytest tests -q`)
+- **Automated Test Suite:** **59 passed / 59 tests** (`python -m pytest tests -q`)
 
 ---
 
@@ -102,38 +102,62 @@ pip install -r requirements.txt
 ```powershell
 python -m pytest tests -q
 ```
-*Expected: 55 passed in ~14 seconds.*
+*Expected: 59 passed in ~30 seconds.*
 
 ---
 
 ## 5. Distributed Demonstration (Two-Laptop Workflow)
 
-### Machine 1: Laptop 1 (Model Host)
+### Machine 1: Laptop 1 (Model Host & Evaluator Backend)
+- **Role:** Hosts trained XGBoost model, HMM/Viterbi engine, FastAPI server, and the evaluation archive (`data/uploads/evaluator_test.zip`).
+- **Hardware:** NVIDIA GeForce RTX 3050 Laptop GPU (4 GB VRAM) / 12-thread CPU fallback.
 1. Ensure inbound traffic is permitted through the Windows Firewall:
    ```powershell
    netsh advfirewall firewall add rule name="PathSnap API" dir=in action=allow protocol=TCP localport=8000
    ```
-2. Launch the FastAPI server:
+2. Find Laptop 1's local IPv4 address:
+   ```powershell
+   ipconfig
+   ```
+   *(Look for "IPv4 Address", e.g. `192.168.1.15` or `10.x.x.x`)*
+3. Launch the FastAPI server:
    ```powershell
    # Option A: PowerShell helper
    .\scripts\run_api.ps1 -Port 8000
 
    # Option B: Batch helper
    .\scripts\run_api.bat 8000
+
+   # Option C: Direct uvicorn
+   uvicorn api.main:app --host 0.0.0.0 --port 8000
    ```
    *The server binds to `0.0.0.0:8000` and displays its local IP address.*
 
-### Machine 2: Laptop 2 (Evaluator Dashboard)
+### Machine 2: Laptop 2 (Streamlit Evaluator Dashboard)
+- **Role:** Pure client UI running on Laptop 2. Connects to Laptop 1 over Wi-Fi/LAN. Does not require the dataset archive or ML dependencies.
 1. Launch the Streamlit evaluator dashboard pointing to Laptop 1:
    ```powershell
    # Option A: PowerShell helper
    .\scripts\run_ui.ps1 -ApiUrl "http://<laptop1-ip>:8000" -Port 8501
 
-   # Option B: Batch helper
-   .\scripts\run_ui.bat http://<laptop1-ip>:8000 8501
+   # Option B: Direct streamlit run
+   $env:PATHSNAP_API_URL="http://<laptop1-ip>:8000"; streamlit run ui/app.py --server.port 8501
    ```
 2. Open `http://localhost:8501` in your browser.
-3. Select an evaluation trip from the dropdown and click **Predict route**.
+3. In the sidebar, verify the connection status to Laptop 1.
+4. **Tab 1 ("⚡ Evaluator — Full Dataset Evaluation"):**
+   - Click **🚀 Evaluate ZIP**.
+   - Laptop 1 sequentially processes all 10 trips in `data/uploads/evaluator_test.zip` in a thread-safe background job.
+   - Watch the live progress bar update in real-time.
+   - Upon completion, view:
+     - 6 Aggregate benchmark performance cards (Top-1, Continuity, Overlap F1, Latency, Total Time).
+     - Execution device transparency badge.
+     - **📥 Download CSV Evaluation Report** button.
+     - Per-trip metric breakdown table.
+     - 3 Diagnostic visualization charts (Classifier vs Viterbi Top-1, Continuity & F1, Latency).
+     - Interactive Folium map displaying GPS observations and ML-predicted route (strictly isolated ground truth).
+5. **Tab 2 ("🔍 Single Trip Inspection"):**
+   - Select any trip from the library and click **Predict route** to inspect candidate counts, probabilities, latency breakdowns, and reference route overlays.
 
 ---
 
