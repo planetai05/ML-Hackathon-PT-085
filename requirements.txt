@@ -17,3 +17,4 @@ streamlit-folium
 requests
 pytest
 httpx
+reportlab>=4.0  # builds the report PDF (scripts/build_report_pdf.py)
