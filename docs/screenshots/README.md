@@ -13,8 +13,8 @@ Captured on 18 Nov 2026 from the real application (API on `0.0.0.0:8020`, UI poi
 | 6b | `06b_ui_trip52_details_formatted.jpg`: trip 00000052 with the fixed details table; also shows a trip where the HMM is 0.8 pts *below* classifier-only | Captured |
 | 7 | `07_api_swagger_docs.jpg`: Swagger API documentation | Captured |
 | 8 | `08_ui_error_api_unreachable.jpg`: error handling | Captured |
-| 9 | `09_api_terminal_predict_log.png`: API terminal showing prediction requests | **To capture manually** |
-| 10 | `10_two_laptop_ui.jpg`: UI on Laptop 2 connected to Laptop 1 | **To capture during the two-laptop test** |
+| 9 | `09_api_console_laptop1_predict.png`: Laptop 1 API console with three successful `POST /predict` calls (trips 65, 52, 7) over the Wi-Fi address | Captured 18 Nov 2026, 21:05 |
+| 10 | `10_ui_via_lan_ip_trip65.png`: UI with API URL `http://192.168.0.100:8030` (Laptop 1 Wi-Fi IP), result for trip 00000065 | Captured 18 Nov 2026, 21:04. The UI ran on Laptop 1 itself, not on a second laptop |
 
 ## How to capture 9 and 10
 1. Laptop 1: `.\scripts\run_api.bat 8000` in a PowerShell or CMD window. Keep that window visible.
