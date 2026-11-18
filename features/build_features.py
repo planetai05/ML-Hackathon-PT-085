@@ -29,6 +29,7 @@ FEATURES = [
     "proj_t", "beyond_end", "arc_len", "log_arc_len",
     # heading
     "heading_diff", "cos_heading", "heading_rank", "heading_valid",
+    "heading_diff_w", "along_w", "along_w_m", "disp_w",
     # speed / time
     "speed", "accel", "dt_prev", "dt_next",
     # spatial consistency with neighbouring observations
@@ -37,6 +38,7 @@ FEATURES = [
     "out_deg_to", "in_deg_from",
 ]
 GAP_S = 10.0  # time gap (s) treated as a break for context features
+WIN = 5       # +/- observations for the robust (windowed) heading
 
 
 def _bearing(dx, dy):
@@ -63,7 +65,16 @@ def point_kinematics(trip: Trip):
     d = xy[nxt] - xy[prv]
     heading = _bearing(d[:, 0], d[:, 1])
     disp = np.linalg.norm(d, axis=1)
+    # robust heading over a +/-WIN window (stationary GPS jitter makes the 1-step heading random)
+    t_ = trip.track[:, 2]
+    pw = np.clip(np.arange(n) - WIN, 0, n - 1)
+    nw = np.clip(np.arange(n) + WIN, 0, n - 1)
+    # shrink the window so it never spans a time gap
+    pw = np.where(t_ - t_[pw] > WIN * 3, np.arange(n), pw)
+    nw = np.where(t_[nw] - t_ > WIN * 3, np.arange(n), nw)
+    dw = xy[nw] - xy[pw]
     return dict(speed=np.nan_to_num(speed), accel=np.clip(np.nan_to_num(accel), -20, 20),
+                dwx=dw[:, 0], dwy=dw[:, 1], disp_w=np.linalg.norm(dw, axis=1),
                 dt_prev=np.nan_to_num(dt_prev, nan=1.0), dt_next=np.nan_to_num(dt_next, nan=1.0),
                 heading=heading, heading_valid=(disp > 3.0).astype(float))
 
@@ -99,6 +110,17 @@ def trip_features(trip: Trip, cands: pd.DataFrame | None = None, radius=DEFAULTS
     df["heading_diff"] = np.where(df.heading_valid > 0, hd, 90.0)  # unknown heading -> neutral value
     df["cos_heading"] = np.where(df.heading_valid > 0, np.cos(np.radians(hd)), 0.0)
     df["heading_rank"] = df.groupby("point_idx").heading_diff.rank(method="first") - 1
+    # windowed heading / signed progress along the arc direction
+    ab = trip.arc_b[arc] - trip.arc_a[arc]
+    ux, uy = ab[:, 0] / np.maximum(L, 1e-6), ab[:, 1] / np.maximum(L, 1e-6)
+    dwx, dwy, dsw = kin["dwx"][pi], kin["dwy"][pi], kin["disp_w"][pi]
+    along = dwx * ux + dwy * uy
+    df["disp_w"] = dsw
+    df["along_w_m"] = along
+    df["along_w"] = along / np.maximum(dsw, 1.0)
+    hw = np.abs(_bearing(dwx, dwy) - trip.arc_bearing[arc]) % 360
+    hw = np.minimum(hw, 360 - hw)
+    df["heading_diff_w"] = np.where(dsw > 5.0, hw, 90.0)
     for f in ("speed", "accel", "dt_prev", "dt_next"):
         df[f] = kin[f][pi]
     # spatial consistency: distance from neighbouring observations to the same arc

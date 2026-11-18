@@ -44,8 +44,8 @@ def make_model(name: str, params: dict | None = None):
     if name == "knn":
         return make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=p.get("n_neighbors", 25), weights="distance", n_jobs=-1))
     if name == "rf":
-        return RandomForestClassifier(n_estimators=p.get("n_estimators", 150), max_depth=p.get("max_depth", 18),
-                                      min_samples_leaf=p.get("min_samples_leaf", 5), max_samples=p.get("max_samples", 0.3),
+        return RandomForestClassifier(n_estimators=p.get("n_estimators", 100), max_depth=p.get("max_depth", 18),
+                                      min_samples_leaf=p.get("min_samples_leaf", 5), max_samples=p.get("max_samples", 0.2),
                                       n_jobs=-1, random_state=SEED)
     if name == "hgb":
         return HistGradientBoostingClassifier(max_iter=p.get("max_iter", 300), learning_rate=p.get("learning_rate", 0.1),
