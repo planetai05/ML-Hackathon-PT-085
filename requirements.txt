@@ -12,3 +12,8 @@ lightgbm
 optuna
 fastapi
 uvicorn
+streamlit
+streamlit-folium
+requests
+pytest
+httpx
