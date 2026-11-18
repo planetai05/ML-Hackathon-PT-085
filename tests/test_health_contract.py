@@ -114,3 +114,10 @@ def test_ui_shows_each_predictor_mode(monkeypatch, mode, widget, text):
             "predictor_error": "FileNotFoundError: x" if mode == "unavailable" else None, "n_trips": 1}
     at = _run_ui(monkeypatch, body)
     assert text in _texts(getattr(at.sidebar, widget))
+
+
+def test_details_table_formatting():
+    from ui.health import fmt_value
+    assert fmt_value(7.490399191510864) == "7.49"
+    assert fmt_value(3929) == "3,929" and fmt_value(1302.0) == "1,302"
+    assert fmt_value(None) == "–" and fmt_value("xgb") == "xgb" and fmt_value(True) == "True"

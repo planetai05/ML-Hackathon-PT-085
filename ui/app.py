@@ -14,7 +14,7 @@ import streamlit as st
 from streamlit_folium import st_folium
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root, for `ui.health`
-from ui.health import HealthContractError, parse_health  # noqa: E402
+from ui.health import HealthContractError, fmt_value, parse_health  # noqa: E402
 
 DEFAULT_API = os.environ.get("PATHSNAP_API_URL", "http://127.0.0.1:8000")
 TIMEOUT_S = float(os.environ.get("PATHSNAP_API_TIMEOUT", "120"))
@@ -189,7 +189,7 @@ if res:
             rows += [("Route precision", pct(met.get("route_precision"))), ("Route recall", pct(met.get("route_recall"))),
                      ("Scored points", met.get("n_points_aligned"))]
         st.markdown("**Prediction details**")
-        st.markdown("\n".join(["| | |", "|---|---|"] + [f"| {a} | {'–' if b is None else b} |" for a, b in rows]))
+        st.markdown("\n".join(["| Detail | Value |", "|---|---|"] + [f"| {a} | {fmt_value(b)} |" for a, b in rows]))
         st.markdown("**Timings (ms)**")
         st.markdown("\n".join(["| stage | ms |", "|---|---:|"] + [f"| {k_} | {v:,.0f} |" for k_, v in res.get("timings_ms", {}).items()]))
     with st.expander("Raw API response"):

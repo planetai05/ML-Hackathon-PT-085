@@ -16,7 +16,10 @@ def main():
     ap.add_argument("--api", default="http://127.0.0.1:8000")
     ap.add_argument("--out", default="results/e2e_api_check.csv")
     a = ap.parse_args()
-    h = requests.get(f"{a.api}/health", timeout=10).json()
+    try:
+        h = requests.get(f"{a.api}/health", timeout=10).json()
+    except requests.RequestException as e:
+        sys.exit(f"Cannot reach the API at {a.api} ({type(e).__name__}). Is it running, and are the IP/port and firewall correct?")
     if not isinstance(h, dict) or "predictor_mode" not in h:
         sys.exit(f"{a.api}/health is not the PathSnap API (got {h!r}); another service may be using this port")
     print("health:", {k: h.get(k) for k in ("service", "status", "predictor_mode", "model_name", "n_trips")})
