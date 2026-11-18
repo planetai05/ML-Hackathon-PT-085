@@ -1,6 +1,7 @@
-"""Generate consolidated PathSnap Technical Report PDF from reports/report_skeleton.md.
+"""Build the PathSnap technical report PDF from reports/PathSnap_Report.md.
 
-Produces: reports/PathSnap_Technical_Report.pdf
+Produces: reports/PathSnap_Report_PT-085.pdf
+Images are written in the markdown as ![caption](path) and placed inline, keeping their aspect ratio.
 """
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import re
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import (
     HRFlowable,
     Image,
@@ -47,7 +49,7 @@ class NumberedCanvas(canvas.Canvas):
 
         # Header (pages > 1)
         if self._pageNumber > 1:
-            self.drawString(54, 755, "PathSnap: Distributed Map-Matching & Sequential Route Reconstruction — Team PT-085")
+            self.drawString(54, 755, "PathSnap Technical Report — Team PT-085")
             self.setStrokeColor(colors.HexColor("#cbd5e1"))
             self.setLineWidth(0.5)
             self.line(54, 750, 558, 750)
@@ -55,7 +57,7 @@ class NumberedCanvas(canvas.Canvas):
         # Footer
         footer_text = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(558, 36, footer_text)
-        self.drawString(54, 36, "Confidential — Evaluator Technical Report — November 2026")
+        self.drawString(54, 36, "PathSnap — Team PT-085 — November 2026")
         self.setStrokeColor(colors.HexColor("#cbd5e1"))
         self.setLineWidth(0.5)
         self.line(54, 46, 558, 46)
@@ -65,20 +67,27 @@ class NumberedCanvas(canvas.Canvas):
 
 def clean_markdown_inline(text: str) -> str:
     """Format markdown bold, code, and math symbols for ReportLab XML."""
-    # Escape XML entities first
-    text = text.replace("&", "&amp;")
-    # Convert bold **text** -> <b>text</b>
+    # Escape XML entities first, and map glyphs missing from the base PDF fonts
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = text.replace("→", "-&gt;").replace("≈", "~").replace("≤", "&lt;=").replace("≥", "&gt;=")
+    # Inline code first, so * and _ inside code are left alone
+    codes = []
+
+    def _code(m):
+        codes.append(m.group(1))
+        return f"\x00{len(codes) - 1}\x00"
+
+    text = re.sub(r"`([^`]+)`", _code, text)
+    # Convert bold **text** -> <b>text</b>, italic *text* -> <i>text</i>
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
-    # Convert inline code `text` -> <font name="Courier" color="#0369a1">\1</font>
-    text = re.sub(r"`([^`]+)`", r'<font name="Courier" color="#0369a1">\1</font>', text)
-    # Clean latex math $...$ -> text
-    text = re.sub(r"\$([^\$]+)\$", r"<i>\1</i>", text)
+    text = re.sub(r"(?<![\w*])\*([^*\s][^*]*?)\*(?![\w*])", r"<i>\1</i>", text)
+    text = re.sub(r"\x00(\d+)\x00", lambda m: f'<font name="Courier" color="#0369a1">{codes[int(m.group(1))]}</font>', text)
     return text
 
 
 def build_pdf():
-    md_path = "reports/report_skeleton.md"
-    pdf_path = "reports/PathSnap_Technical_Report.pdf"
+    md_path = "reports/PathSnap_Report.md"
+    pdf_path = "reports/PathSnap_Report_PT-085.pdf"
 
     if not os.path.exists(md_path):
         raise FileNotFoundError(f"{md_path} not found")
@@ -200,6 +209,14 @@ def build_pdf():
         textColor=colors.white,
     )
 
+    caption_style = ParagraphStyle(
+        "Caption_Custom", parent=body_style, fontSize=8, leading=10.5,
+        textColor=colors.HexColor("#475569"), spaceBefore=3, spaceAfter=10,
+    )
+    sub_bullet_style = ParagraphStyle(
+        "SubBullet_Custom", parent=bullet_style, leftIndent=28, firstLineIndent=-8,
+    )
+
     story = []
 
     lines = md_text.split("\n")
@@ -222,7 +239,7 @@ def build_pdf():
             continue
 
         if in_code:
-            code_buffer.append(line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;"))
+            code_buffer.append(line.strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace(" ", "&nbsp;"))
             i += 1
             continue
 
@@ -230,6 +247,32 @@ def build_pdf():
         if line.strip() == "---":
             story.append(Spacer(1, 4))
             story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cbd5e1"), spaceAfter=8))
+            i += 1
+            continue
+
+        # Inline images: ![caption](path)
+        m_img = re.match(r"^!\[(.+)\]\((.+)\)$", line.strip())
+        if m_img:
+            caption, fpath = m_img.group(1), m_img.group(2)
+            if not os.path.exists(fpath):
+                raise FileNotFoundError(f"figure not found: {fpath}")
+            iw, ih = ImageReader(fpath).getSize()
+            scale = min(470 / iw, 330 / ih)
+            story.append(KeepTogether([
+                Spacer(1, 6),
+                Image(fpath, width=iw * scale, height=ih * scale),
+                Paragraph(f"<i>{clean_markdown_inline(caption)}</i>", caption_style),
+            ]))
+            i += 1
+            continue
+
+        # Indented sub-bullets / continuation lines
+        if line.startswith("  ") and line.strip():
+            sub = line.strip()
+            if sub.startswith("- "):
+                story.append(Paragraph("– " + clean_markdown_inline(sub[2:]), sub_bullet_style))
+            else:
+                story.append(Paragraph(clean_markdown_inline(sub), sub_bullet_style))
             i += 1
             continue
 
@@ -260,9 +303,14 @@ def build_pdf():
 
                 num_cols = len(header_raw)
                 total_w = 504
-                col_w = total_w / num_cols
+                # Width of each column proportional to its longest text (clamped), so long text gets room
+                weights = []
+                for c in range(num_cols):
+                    longest = max(len(re.sub(r"[`*]", "", row[c] if c < len(row) else "")) for row in [header_raw] + data_rows)
+                    weights.append(min(max(longest, 7), 45))
+                col_widths = [total_w * w / sum(weights) for w in weights]
 
-                t = Table(table_data, colWidths=[col_w] * num_cols, repeatRows=1)
+                t = Table(table_data, colWidths=col_widths, repeatRows=1)
                 t.setStyle(
                     TableStyle([
                         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a8a")),
@@ -324,31 +372,6 @@ def build_pdf():
         # Normal text paragraph
         story.append(Paragraph(clean_markdown_inline(line), body_style))
         i += 1
-
-    # Append key figures at the end of the report
-    story.append(PageBreak())
-    story.append(Paragraph("10. Supplementary Report Figures & Visualizations", h1_style))
-    story.append(Paragraph("The publication figures below visualize model comparisons, HPO trials, HMM continuity impact, and Streamlit user interface operations:", body_style))
-
-    figs = [
-        ("Figure 1: Cross-Validation & Student-Testing Accuracy Across 7 Models", "results/figures/report/model_comparison_accuracy.png", 460, 230),
-        ("Figure 2: Log Loss Probability Quality Comparison", "results/figures/report/model_comparison_logloss.png", 460, 230),
-        ("Figure 3: Computational Efficiency (Training Time vs Inference Latency)", "results/figures/report/model_efficiency.png", 460, 240),
-        ("Figure 4: Bayesian HPO Optimization History & Parameter Importance", "results/figures/hpo/optimization_history.png", 460, 230),
-        ("Figure 5: HMM Sequence Impact on Top-1 Accuracy and Route Continuity", "results/figures/report/hmm_route_impact.png", 460, 280),
-        ("Figure 6: Streamlit Evaluator Interface Connected to Real XGBoost Model", "docs/screenshots/01_ui_connected_real_model.jpg", 460, 240),
-        ("Figure 7: Reconstructed Route and Folium Map for Trip 00000056", "docs/screenshots/04_ui_result_metrics_map_trip56.jpg", 460, 240),
-        ("Figure 8: Detailed Pipeline Latency and Stage Timings", "docs/screenshots/06_ui_details_and_timings.jpg", 460, 240),
-    ]
-
-    for title, fpath, w, h in figs:
-        if os.path.exists(fpath):
-            story.append(KeepTogether([
-                Spacer(1, 10),
-                Paragraph(f"<b>{title}</b>", h3_style),
-                Image(fpath, width=w, height=h),
-                Spacer(1, 8),
-            ]))
 
     doc.build(story, canvasmaker=NumberedCanvas)
     print(f"Report PDF built successfully: {pdf_path} ({os.path.getsize(pdf_path):,} bytes)")

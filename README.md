@@ -22,11 +22,11 @@ Raw GPS Observations → Spatial Index Candidate Generation (40m radius) → 24 
 All figures verified against actual runs recorded in `results/hmm_comparison.csv` and `results/e2e_api_check.csv`:
 
 - **Candidate Top-1 Accuracy (XGBoost Classifier):** **86.87%**
-- **Reconstructed Route Top-1 Accuracy (Viterbi HMM):** **89.56%** (+1.08 percentage points)
+- **Reconstructed Route Top-1 Accuracy (Viterbi HMM):** **88.30%** point-weighted vs 86.87% classifier-only (89.56% vs 88.48% as a mean of per-trip values)
 - **Route Continuity:** Jumped from 81.72% (classifier-only) to **97.20% (with HMM)**
 - **Length-Weighted Route Overlap F1 Score:** **94.61%**
 - **Mean Single-Trip Processing Latency:** **813.7 ms** (offline) / **1,729 ms** (live HTTP over LAN)
-- **Automated Test Suite:** **59 passed / 59 tests** (`python -m pytest tests -q`)
+- **Automated Test Suite:** **57 passed, 2 skipped** (`python -m pytest tests -q`; the skipped tests need the evaluator ZIP)
 
 ---
 
@@ -69,8 +69,8 @@ PathSnap/
 │   ├── predictor.py       # Production Predictor adhering to docs/API_CONTRACT.md
 │   └── train_models.py    # 7-model GroupKFold cross-validation suite
 ├── reports/               # Technical report documents
-│   ├── PathSnap_Technical_Report.pdf  # Consolidated Evaluator Technical Report (~1.1 MB)
-│   └── report_skeleton.md             # Markdown source draft
+│   ├── PathSnap_Report_PT-085.pdf     # Consolidated technical report (submission PDF)
+│   └── PathSnap_Report.md             # Report source (built by scripts/build_report_pdf.py)
 ├── results/               # Committed empirical CSV records and figures
 │   ├── e2e_api_check.csv              # Full HTTP verification log for 10 trips
 │   ├── hmm_comparison.csv             # Offline HMM vs Classifier-only comparison
@@ -102,7 +102,7 @@ pip install -r requirements.txt
 ```powershell
 python -m pytest tests -q
 ```
-*Expected: 59 passed in ~30 seconds.*
+*Expected: 57 passed, 2 skipped (the 2 need `data/uploads/evaluator_test.zip`).*
 
 ---
 
@@ -170,5 +170,5 @@ python -m pytest tests -q
 ---
 
 ## 7. Submission Deliverables
-- **Consolidated Technical Report:** Located at [`reports/PathSnap_Technical_Report.pdf`](file:///d:/Sem%205/ML%20Hackathon/ML-Hackathon-PT-085/reports/PathSnap_Technical_Report.pdf).
+- **Consolidated Technical Report:** [`reports/PathSnap_Report_PT-085.pdf`](reports/PathSnap_Report_PT-085.pdf) (source: `reports/PathSnap_Report.md`).
 - **GitHub Repository:** Clean, tagged, with zero untracked runtime artifacts and zero evaluator contamination.
