@@ -1,0 +1,3 @@
+configuration,cv_macro_f1,cv_top1,cv_log_loss,test_top1,test_macro_f1,test_log_loss,test_route_continuity,train_time_s,inference_ms_per_1k_rows
+Untuned (Defaults),0.90701,0.85066,0.12238,0.86772,0.92072,0.10068,0.81626,21.08273,0.00093
+Tuned (Optuna Bayesian),0.90677,0.84965,0.12390,0.86866,0.91919,0.10180,0.81715,17.10471,0.00065
