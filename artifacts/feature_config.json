@@ -1,0 +1,40 @@
+{
+ "features": [
+  "dist",
+  "dist_rank",
+  "dist_minus_min",
+  "dist_ratio",
+  "n_cand",
+  "proj_t",
+  "beyond_end",
+  "arc_len",
+  "log_arc_len",
+  "heading_diff",
+  "cos_heading",
+  "heading_rank",
+  "heading_valid",
+  "speed",
+  "accel",
+  "dt_prev",
+  "dt_next",
+  "dist_prev_pt",
+  "dist_next_pt",
+  "dist_ctx_mean",
+  "conn_prev_nearest",
+  "conn_next_nearest",
+  "out_deg_to",
+  "in_deg_from"
+ ],
+ "candidate_params": {
+  "radius": 40.0,
+  "k": 12,
+  "step": 10.0
+ },
+ "gap_s": 10.0,
+ "crs": "per-trip UTM zone from track centroid (EPSG:326xx/327xx)",
+ "label_alignment": {
+  "search_radius": 60.0,
+  "max_dist": 40.0,
+  "skip_penalty": 0.5
+ }
+}
