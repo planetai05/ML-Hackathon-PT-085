@@ -60,3 +60,29 @@ def test_real_trip_candidates_and_labels():
     assert c.arc_id.between(0, tr.n_arcs - 1).all()
     ta, al, d = align_route(tr)
     assert al.mean() > 0.9 and miss_rate(c, ta, al) < 0.05
+
+
+def test_hmm_transitions_toy():
+    from hmm.model import HMMConfig, RoadGraph, transition_logp
+    tr = toy_trip()
+    g = RoadGraph(tr)
+    cfg = HMMConfig(beta=10.0)
+    # from arc 0 (0->1) at t=0.9 to arc 1 (1->2) at t=0.1: network distance 10 + 10 = 20 m, gps 20 m -> log p = 0
+    lp = transition_logp(g, np.array([0]), np.array([0.9]), np.array([1, 6, 4]), np.array([0.1, 0.5, 0.5]), 20.0, cfg)
+    assert lp[0, 0] == pytest.approx(0.0)
+    assert lp[0, 1] == cfg.log_eps  # parallel road is not connected -> epsilon
+    assert lp[0, 2] < lp[0, 0]      # reverse arc 2->1 needs a detour
+    assert g.path_arcs(0, 2, 500) == [1]
+
+
+def test_viterbi_prefers_connected_route_toy():
+    from features.build_features import trip_features
+    from hmm.model import HMMConfig
+    from hmm.viterbi import decode
+    tr = toy_trip()
+    df = trip_features(tr)
+    # uninformative classifier: equal probabilities -> HMM must use topology/geometry
+    prob = np.full(len(df), 0.5)
+    r = decode(tr, df, prob, HMMConfig(beta=5.0, dist_weight=1.0, sigma=5.0))
+    assert set(r["per_point_arc"]) <= {0, 1, 2} and r["route_arcs"] == [0, 1, 2]
+    assert len(r["segments"]) == 1
