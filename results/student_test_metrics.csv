@@ -1,0 +1,8 @@
+model,family,device,full_train_s,accuracy,macro_f1,precision,recall,log_loss,top1,route_continuity,inference_s,inference_ms_per_1k_rows
+rf,Bagged trees (random forest),CPU,79.11791,0.96042,0.92128,0.88115,0.85090,0.10022,0.86877,0.80938,0.51451,0.00403
+xgb,Gradient boosting (XGBoost),CPU,19.99747,0.95995,0.92072,0.87493,0.85519,0.10068,0.86772,0.81626,0.11147,0.00087
+lgbm,Gradient boosting (LightGBM),CPU,23.20432,0.95925,0.91946,0.87130,0.85456,0.10133,0.86699,0.81677,0.44925,0.00352
+mlp,Neural network (MLP),CPU,35.03948,0.95717,0.91601,0.85738,0.85702,0.10733,0.86563,0.81451,0.06541,0.00051
+hgb,Gradient boosting (sklearn HistGB),CPU,7.27043,0.95832,0.91795,0.86445,0.85640,0.10598,0.86406,0.81071,0.18360,0.00144
+logreg,Linear (logistic regression),CPU,3.67227,0.95144,0.90467,0.83916,0.83661,0.13050,0.85779,0.81864,0.03671,0.00029
+knn,Instance-based (k-NN),CPU,0.08193,0.95224,0.90554,0.84805,0.83039,0.15578,0.85475,0.80743,19.93802,0.15630
