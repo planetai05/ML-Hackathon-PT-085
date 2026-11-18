@@ -1,0 +1,111 @@
+{
+ "trip_id": "00000052",
+ "n_points": 3,
+ "gps_points": [
+  [
+   35.858383,
+   56.79915,
+   1.0
+  ],
+  [
+   35.858632,
+   56.799107,
+   2.0
+  ],
+  [
+   35.859006,
+   56.798914,
+   3.0
+  ]
+ ],
+ "per_point_arc": [
+  2641,
+  2641,
+  64973
+ ],
+ "per_point_prob": [
+  0.91,
+  0.88,
+  0.74
+ ],
+ "predicted_arcs": [
+  2641,
+  64973
+ ],
+ "predicted_route_geojson": {
+  "type": "Feature",
+  "properties": {
+   "layer": "predicted"
+  },
+  "geometry": {
+   "type": "MultiLineString",
+   "coordinates": [
+    [
+     [
+      35.858383,
+      56.79915
+     ],
+     [
+      35.858632,
+      56.799107
+     ],
+     [
+      35.859006,
+      56.798914
+     ]
+    ]
+   ]
+  }
+ },
+ "metadata": {
+  "model_name": "lightgbm",
+  "decoder": "hmm_viterbi",
+  "n_segments": 1,
+  "mean_candidates": 9.4,
+  "empty_candidate_points": 0,
+  "artifact_version": "v1"
+ },
+ "timings_ms": {
+  "load": 120.0,
+  "candidates": 310.5,
+  "features": 95.2,
+  "model": 40.1,
+  "viterbi": 820.3,
+  "total": 1386.1
+ },
+ "metrics": {
+  "top1_accuracy": 0.93,
+  "classifier_only_top1": 0.88,
+  "route_precision": 0.95,
+  "route_recall": 0.92,
+  "route_f1": 0.935,
+  "route_continuity": 0.99,
+  "n_points_aligned": 3,
+  "reference_route_geojson": {
+   "type": "Feature",
+   "properties": {
+    "layer": "reference"
+   },
+   "geometry": {
+    "type": "MultiLineString",
+    "coordinates": [
+     [
+      [
+       35.858383,
+       56.79915
+      ],
+      [
+       35.858632,
+       56.799107
+      ],
+      [
+       35.859006,
+       56.798914
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "_note": "ILLUSTRATIVE VALUES ONLY - shape of the response, not real results"
+}
