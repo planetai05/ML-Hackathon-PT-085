@@ -56,6 +56,12 @@ def make_model(name: str, params: dict | None = None):
                     subsample_freq=1, colsample_bytree=0.8, reg_lambda=0.0)
         base.update(p)
         return lgb.LGBMClassifier(**base, random_state=SEED, n_jobs=-1, verbose=-1)
+    if name == "xgb":
+        import xgboost as xgb
+        base = dict(n_estimators=300, learning_rate=0.08, max_depth=6, subsample=0.8,
+                    colsample_bytree=0.8, tree_method="hist", device="cpu", eval_metric="logloss")
+        base.update(p)
+        return xgb.XGBClassifier(**base, random_state=SEED, n_jobs=-1)
     if name == "mlp":
         return make_pipeline(StandardScaler(), MLPClassifier(hidden_layer_sizes=p.get("hidden", (64, 32)), alpha=p.get("alpha", 1e-4),
                                                              batch_size=1024, learning_rate_init=1e-3, max_iter=40,
@@ -65,8 +71,15 @@ def make_model(name: str, params: dict | None = None):
 
 # Models whose fitting cost is super-linear get a fixed-size, seeded subsample of the training fold
 TRAIN_SUBSAMPLE = {"knn": 200_000, "mlp": 600_000}
-FAMILY = {"logreg": "Linear (logistic regression)", "knn": "Instance-based (k-NN)", "rf": "Bagged trees (random forest)",
-          "hgb": "Gradient boosting (sklearn HistGB)", "lgbm": "Gradient boosting (LightGBM)", "mlp": "Neural network (MLP)"}
+FAMILY = {
+    "logreg": "Linear (logistic regression)",
+    "knn": "Instance-based (k-NN)",
+    "rf": "Bagged trees (random forest)",
+    "hgb": "Gradient boosting (sklearn HistGB)",
+    "lgbm": "Gradient boosting (LightGBM)",
+    "xgb": "Gradient boosting (XGBoost)",
+    "mlp": "Neural network (MLP)",
+}
 
 
 def load_split(split):
@@ -158,7 +171,9 @@ def run_model(model_name, train_df, test_df, params=None, tag=None):
     test, p_test = evaluate(m, test_df, "student_test")
     os.makedirs("models/saved", exist_ok=True)
     joblib.dump(m, f"models/saved/{tag}.joblib", compress=3)
-    run = dict(model=tag, family=FAMILY.get(model_name, model_name), params=params or {}, config=repr(make_model(model_name, params)),
+    dev = "CPU"
+    run = dict(model=tag, family=FAMILY.get(model_name, model_name), device=dev, params=params or {},
+               config=repr(make_model(model_name, params)),
                seed=SEED, n_splits=N_SPLITS, train_subsample=TRAIN_SUBSAMPLE.get(model_name),
                cv_mean=cv.drop(columns="fold").mean().to_dict(), cv_std=cv.drop(columns="fold").std().to_dict(),
                cv_folds=cv.to_dict("records"), test=test, full_train_s=tt)
@@ -170,6 +185,7 @@ def run_model(model_name, train_df, test_df, params=None, tag=None):
     json.dump(run, open(f"results/runs/{tag}.json", "w"), indent=1, default=float)
     # confusion matrix on student_test (pair level, aligned points)
     _confusion(test_df, p_test, tag)
+    os.makedirs("cache", exist_ok=True)
     np.save(f"cache/p_test_{tag}.npy", p_test)
     print(f"   CV top1={run['cv_mean']['top1']:.4f}±{run['cv_std']['top1']:.4f} macroF1={run['cv_mean']['macro_f1']:.4f} | "
           f"TEST top1={test['top1']:.4f} macroF1={test['macro_f1']:.4f} logloss={test['log_loss']:.4f}", flush=True)
@@ -192,13 +208,15 @@ def _confusion(df, p, tag):
 
 
 def comparison_table():
+    from models.reporting import export_auxiliary_metrics, generate_comparison_plots, generate_model_notes
     rows = []
     for f in sorted(os.listdir("results/runs")):
         if not f.endswith(".json"):
             continue
         r = json.load(open(f"results/runs/{f}"))
         c, s, t = r["cv_mean"], r["cv_std"], r["test"]
-        rows.append({"model": r["model"], "family": r["family"], "key_config": json.dumps(r["params"]) if r["params"] else "defaults (see run json)",
+        rows.append({"model": r["model"], "family": r["family"], "device": r.get("device", "CPU"),
+                     "key_config": json.dumps(r["params"]) if r["params"] else "defaults (see run json)",
                      "train_subsample": r.get("train_subsample"),
                      "cv_macro_f1": c["macro_f1"], "cv_macro_f1_std": s["macro_f1"], "cv_top1": c["top1"], "cv_top1_std": s["top1"],
                      "cv_log_loss": c["log_loss"], "cv_precision": c["precision"], "cv_recall": c["recall"], "cv_accuracy": c["accuracy"],
@@ -209,12 +227,15 @@ def comparison_table():
                      "inference_ms_per_1k_rows": t["inference_ms_per_1k_rows"]})
     df = pd.DataFrame(rows).sort_values("cv_top1", ascending=False)
     df.to_csv("results/model_comparison.csv", index=False, float_format="%.5f")
+    export_auxiliary_metrics()
+    generate_comparison_plots()
+    generate_model_notes()
     return df
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--models", nargs="+", default=["logreg", "knn", "rf", "hgb", "lgbm", "mlp"])
+    ap.add_argument("--models", nargs="+", default=["logreg", "knn", "rf", "hgb", "lgbm", "xgb", "mlp"])
     a = ap.parse_args()
     train_df, test_df = load_split("train"), load_split("student_test")
     print(f"train rows {len(train_df):,} ({train_df.trip_id.nunique()} trips), test rows {len(test_df):,} "
