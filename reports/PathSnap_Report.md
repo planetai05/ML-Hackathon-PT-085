@@ -418,7 +418,16 @@ netsh advfirewall firewall add rule name="PathSnap API" dir=in action=allow prot
 ```
 Then open `http://localhost:8501`. Both laptops must be on the same Wi-Fi network. `docs/API_UI.md` covers the details: finding the Wi-Fi IP rather than a VirtualBox or WSL address, port conflicts, and troubleshooting.
 
-**Status of the physical two-laptop run:** *[To be completed by the team after the run: date, Laptop 1 IP, Laptop 2 IP, result. Add Figure 18, the Laptop 1 command window showing `PREDICT … client=<laptop2-ip>` lines, and Figure 19, the Laptop 2 UI showing a result.]* The single-laptop LAN test in 7.4 shows the service listens on the network address. The cross-laptop result will be added from the actual run and will not be stated before it happens.
+**Screenshots of the deployed service (Figures 18 and 19).** These were captured on 18 Nov 2026 after the presentation:
+- The API ran on Laptop 1 bound to `0.0.0.0:8030`.
+- The UI was pointed at Laptop 1's Wi-Fi address `http://192.168.0.100:8030`, so every request went through the network interface. The `client=` field in the log shows the caller's address.
+- For these screenshots the UI ran on Laptop 1 itself, not on a second laptop.
+
+The metrics in both figures are identical to Table 7.4 and `results/hmm_comparison.csv`, for example trip 00000065 with Top-1 0.8607, classifier-only 0.8359 and route F1 0.9429. The response times are longer than in Table 7.4 because the laptop was running other work at the time.
+
+![Figure 18 – Command window on Laptop 1, the machine that receives the requests: three successful POST /predict calls (trips 00000065, 00000052, 00000007), each answered with HTTP 200 OK in mode=real with model=xgb.](docs/screenshots/09_api_console_laptop1_predict.png)
+
+![Figure 19 – Streamlit UI connected to the API at Laptop 1's Wi-Fi address (sidebar: http://192.168.0.100:8030, "Connected · model xgb"), showing the result for student-test trip 00000065.](docs/screenshots/10_ui_via_lan_ip_trip65.png)
 
 ---
 
