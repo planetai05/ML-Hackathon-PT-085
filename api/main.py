@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from api.config import Settings
 from api.schemas import ErrorResponse, HealthResponse, PredictRequest, PredictResponse, TripsResponse
@@ -139,6 +139,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     def _err(code: int, error: str, detail: str):
         raise HTTPException(status_code=code, detail={"error": error, "detail": detail})
+
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse("/docs")
 
     @app.get("/health", response_model=HealthResponse, tags=["service"])
     def health():

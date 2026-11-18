@@ -12,7 +12,7 @@ import requests
 import streamlit as st
 from streamlit_folium import st_folium
 
-DEFAULT_API = os.environ.get("PATHSNAP_API_URL", "http://localhost:8000")
+DEFAULT_API = os.environ.get("PATHSNAP_API_URL", "http://127.0.0.1:8000")
 TIMEOUT_S = float(os.environ.get("PATHSNAP_API_TIMEOUT", "120"))
 
 st.set_page_config(page_title="PathSnap", page_icon="🗺️", layout="wide")
@@ -63,28 +63,28 @@ def _lines(feature):
 
 def build_map(res: dict, show_ref: bool, show_pts: bool) -> folium.Map:
     pts = [(p[1], p[0]) for p in res["gps_points"]]
-    m = folium.Map(tiles="cartodbpositron", control_scale=True)
+    m = folium.Map(tiles="OpenStreetMap", control_scale=True)
     if show_ref and res.get("metrics") and res["metrics"].get("reference_route_geojson"):
         fg = folium.FeatureGroup(name="Reference route (green)")
         for line in _lines(res["metrics"]["reference_route_geojson"]):
             folium.PolyLine(line, color="#1a9850", weight=8, opacity=0.55).add_to(fg)
         fg.add_to(m)
-    fg = folium.FeatureGroup(name="Predicted route (red)")
-    for line in _lines(res["predicted_route_geojson"]):
-        folium.PolyLine(line, color="#d73027", weight=4, opacity=0.9).add_to(fg)
-    fg.add_to(m)
     if show_pts:
         fg = folium.FeatureGroup(name="GPS observations (blue)")
         step = max(1, len(pts) // 1500)  # keep the map responsive for long trips
         for lat, lon in pts[::step]:
             folium.CircleMarker((lat, lon), radius=2, color="#2c7bb6", fill=True, fill_opacity=0.8, weight=0).add_to(fg)
         fg.add_to(m)
+    fg = folium.FeatureGroup(name="Predicted route (red)")
+    for line in _lines(res["predicted_route_geojson"]):
+        folium.PolyLine(line, color="#d73027", weight=4, opacity=0.9).add_to(fg)
+    fg.add_to(m)
     if pts:
         folium.Marker(pts[0], tooltip="Start", icon=folium.Icon(color="green", icon="play")).add_to(m)
         folium.Marker(pts[-1], tooltip="End", icon=folium.Icon(color="red", icon="stop")).add_to(m)
         lats, lons = [p[0] for p in pts], [p[1] for p in pts]
         m.fit_bounds([(min(lats), min(lons)), (max(lats), max(lons))])
-    folium.LayerControl(collapsed=False).add_to(m)
+    folium.LayerControl(collapsed=True).add_to(m)
     return m
 
 
@@ -138,8 +138,10 @@ if not trips:
 c1, c2 = st.columns([3, 1])
 trip = c1.selectbox("Evaluation trip", trips, index=None, placeholder="Select one of the trips…")
 c2.write(""); c2.write("")
-go = c2.button("Predict route", type="primary", use_container_width=True, disabled=trip is None)
+go = c2.button("Predict route", type="primary", use_container_width=True)
 
+if go and not trip:
+    st.warning("Select a trip first.")
 if go and trip:
     with st.spinner(f"Running the PathSnap pipeline on trip {trip}…"):
         try:
@@ -158,7 +160,7 @@ if res:
         st.warning("⚠️ MOCK RESPONSE – the backend is in development mode. This is not an ML prediction.")
     meta, met = res.get("metadata", {}), res.get("metrics") or {}
     st.subheader(f"Trip {res['trip_id']}")
-    k = st.columns(6)
+    k = st.columns(3) + st.columns(3)
     k[0].metric("Point accuracy (HMM)", pct(met.get("top1_accuracy")),
                 None if met.get("classifier_only_top1") is None or met.get("top1_accuracy") is None
                 else f"{100 * (met['top1_accuracy'] - met['classifier_only_top1']):+.1f} pts vs classifier-only")
@@ -170,21 +172,20 @@ if res:
     if res.get("metrics_error"):
         st.info(f"Metrics unavailable for this trip: {res['metrics_error']}")
 
-    left, right = st.columns([3, 1])
+    left, right = st.columns([5, 2])
     with left:
         st_folium(build_map(res, show_ref, show_pts), height=560, use_container_width=True, returned_objects=[])
     with right:
-        st.markdown("**Prediction**")
-        st.write({"model": meta.get("model_name"), "decoder": meta.get("decoder"),
-                  "route arcs": len(res.get("predicted_arcs", [])), "route segments": meta.get("n_segments"),
-                  "mean candidates / point": meta.get("mean_candidates"),
-                  "points without candidates": meta.get("empty_candidate_points"),
-                  "artifact": meta.get("artifact_version")})
+        rows = [("Model", meta.get("model_name")), ("Decoder", meta.get("decoder")),
+                ("Route arcs", len(res.get("predicted_arcs", []))), ("Route segments", meta.get("n_segments")),
+                ("Candidates / point", meta.get("mean_candidates")), ("Points w/o candidates", meta.get("empty_candidate_points")),
+                ("Artifact", meta.get("artifact_version"))]
         if met:
-            st.markdown("**Route overlap (length-weighted)**")
-            st.write({"precision": pct(met.get("route_precision")), "recall": pct(met.get("route_recall")),
-                      "scored points": met.get("n_points_aligned")})
+            rows += [("Route precision", pct(met.get("route_precision"))), ("Route recall", pct(met.get("route_recall"))),
+                     ("Scored points", met.get("n_points_aligned"))]
+        st.markdown("**Prediction details**")
+        st.markdown("\n".join(["| | |", "|---|---|"] + [f"| {a} | {'–' if b is None else b} |" for a, b in rows]))
         st.markdown("**Timings (ms)**")
-        st.bar_chart({k_: v for k_, v in res.get("timings_ms", {}).items() if k_ != "total"}, horizontal=True, height=200)
+        st.markdown("\n".join(["| stage | ms |", "|---|---:|"] + [f"| {k_} | {v:,.0f} |" for k_, v in res.get("timings_ms", {}).items()]))
     with st.expander("Raw API response"):
         st.json({k_: v for k_, v in res.items() if k_ not in ("gps_points", "per_point_arc", "per_point_prob")}, expanded=False)
