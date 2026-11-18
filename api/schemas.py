@@ -56,6 +56,7 @@ class TripsResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
+    service: Literal["pathsnap-api"] = Field("pathsnap-api", description="Fixed identity so clients can tell this API apart from other services on the same port")
     status: Literal["ok", "degraded"]
     predictor_mode: Literal["real", "mock", "unavailable"]
     model_loaded: bool

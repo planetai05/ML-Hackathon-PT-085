@@ -17,7 +17,9 @@ def main():
     ap.add_argument("--out", default="results/e2e_api_check.csv")
     a = ap.parse_args()
     h = requests.get(f"{a.api}/health", timeout=10).json()
-    print("health:", {k: h[k] for k in ("status", "predictor_mode", "model_name", "n_trips")})
+    if not isinstance(h, dict) or "predictor_mode" not in h:
+        sys.exit(f"{a.api}/health is not the PathSnap API (got {h!r}); another service may be using this port")
+    print("health:", {k: h.get(k) for k in ("service", "status", "predictor_mode", "model_name", "n_trips")})
     trips = requests.get(f"{a.api}/trips", timeout=10).json()["trips"]
     rows, ok = [], True
     for t in trips:

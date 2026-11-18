@@ -6,11 +6,15 @@ The UI talks ONLY to the FastAPI backend over HTTP; it never loads ML code, mode
 from __future__ import annotations
 
 import os
+import sys
 
 import folium
 import requests
 import streamlit as st
 from streamlit_folium import st_folium
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo root, for `ui.health`
+from ui.health import HealthContractError, parse_health  # noqa: E402
 
 DEFAULT_API = os.environ.get("PATHSNAP_API_URL", "http://127.0.0.1:8000")
 TIMEOUT_S = float(os.environ.get("PATHSNAP_API_TIMEOUT", "120"))
@@ -106,16 +110,17 @@ with st.sidebar:
         get_health.clear(); get_trips.clear()
     health = None
     try:
-        health = get_health(api)
+        health = parse_health(get_health(api), api)
         mode = health["predictor_mode"]
         if mode == "real":
-            st.success(f"Connected · model **{health.get('model_name')}**")
+            st.success(f"Connected · model **{health['model_name'] or 'unknown'}**")
         elif mode == "mock":
             st.warning("Connected · **MOCK MODE** – responses are placeholders, not ML predictions")
         else:
-            st.error(f"Connected, but no model is loaded: {health.get('predictor_error')}")
-        st.caption(f"Trips folder: {health['n_trips']} trips · artifact {health.get('artifact_version') or '–'}")
-    except ApiError as e:
+            st.error(f"Connected, but no model is loaded: {health['predictor_error'] or 'no reason reported'}")
+        st.caption(f"Trips folder: {health['n_trips']} trips · artifact {health['artifact_version'] or '–'}")
+    except (ApiError, HealthContractError) as e:
+        health = None
         st.error(str(e))
     st.header("Map layers")
     show_ref = st.checkbox("Reference route", value=True)
