@@ -1,0 +1,56 @@
+# Real PathSnap API console output, 18 Nov 2026 (uvicorn --host 0.0.0.0 --port 8020, Laptop-1 role).
+# Requests came from this machine's Wi-Fi address 10.218.43.14 (e2e_check.py, curl, Streamlit). Local path shortened.
+INFO:     Started server process [10396]
+2026-11-18 15:06:29 | predictor loaded: models.predictor:Predictor (xgb)
+2026-11-18 15:06:29 | trips_dir=<repo>\data\Student folder\student_test (10 trips)
+INFO:     Uvicorn running on http://0.0.0.0:8020 (Press CTRL+C to quit)
+2026-11-18 15:06:49 | 10.218.43.14 GET /health -> 200 (9 ms)
+2026-11-18 15:06:49 | 10.218.43.14 GET /trips -> 200 (6 ms)
+2026-11-18 15:06:49 | 10.218.43.14 GET /docs -> 200 (1 ms)
+2026-11-18 15:06:49 | 10.218.43.14 GET /openapi.json -> 200 (93 ms)
+2026-11-18 15:06:49 | 10.218.43.14 GET / -> 307 (2 ms)
+2026-11-18 15:06:49 | 10.218.43.14 GET /nope -> 404 (1 ms)
+2026-11-18 15:06:50 | PREDICT trip=00000052 mode=real model=xgb points=262 top1=0.9656 clf_top1=0.9733 route_f1=0.9793 latency=492ms client=10.218.43.14
+2026-11-18 15:06:50 | 10.218.43.14 POST /predict -> 200 (499 ms)
+2026-11-18 15:06:50 | 10.218.43.14 POST /predict -> 404 (4 ms)
+2026-11-18 15:06:51 | 10.218.43.14 POST /predict -> 422 (1 ms)
+2026-11-18 15:06:51 | 10.218.43.14 POST /predict -> 422 (1 ms)
+2026-11-18 15:06:51 | 10.218.43.14 POST /predict -> 422 (2 ms)
+2026-11-18 15:06:52 | 10.218.43.14 POST /predict -> 422 (1 ms)
+2026-11-18 15:06:52 | 10.218.43.14 GET /openapi.json -> 200 (1 ms)
+2026-11-18 15:07:08 | PREDICT trip=00000052 mode=real model=xgb points=262 top1=0.9656 clf_top1=0.9733 route_f1=0.9793 latency=306ms client=10.218.43.14
+2026-11-18 15:07:08 | 10.218.43.14 POST /predict -> 200 (309 ms)
+2026-11-18 15:07:19 | PREDICT trip=00000056 mode=real model=xgb points=3958 top1=0.931 clf_top1=0.9074 route_f1=0.9694 latency=5832ms client=10.218.43.14
+2026-11-18 15:07:19 | 10.218.43.14 POST /predict -> 200 (5844 ms)
+2026-11-18 15:07:20 | 10.218.43.14 GET /health -> 200 (3 ms)
+2026-11-18 15:07:20 | 10.218.43.14 GET /trips -> 200 (8 ms)
+2026-11-18 15:07:23 | PREDICT trip=00000000 mode=real model=xgb points=2503 top1=0.9549 clf_top1=0.9453 route_f1=0.9832 latency=3079ms client=10.218.43.14
+2026-11-18 15:07:23 | 10.218.43.14 POST /predict -> 200 (3085 ms)
+2026-11-18 15:07:25 | PREDICT trip=00000007 mode=real model=xgb points=1354 top1=0.9217 clf_top1=0.9239 route_f1=0.9872 latency=1496ms client=10.218.43.14
+2026-11-18 15:07:25 | 10.218.43.14 POST /predict -> 200 (1500 ms)
+2026-11-18 15:07:26 | PREDICT trip=00000009 mode=real model=xgb points=1049 top1=0.8695 clf_top1=0.881 route_f1=0.9202 latency=1284ms client=10.218.43.14
+2026-11-18 15:07:26 | 10.218.43.14 POST /predict -> 200 (1288 ms)
+2026-11-18 15:07:29 | PREDICT trip=00000040 mode=real model=xgb points=2995 top1=0.9301 clf_top1=0.9157 route_f1=0.9596 latency=2533ms client=10.218.43.14
+2026-11-18 15:07:29 | 10.218.43.14 POST /predict -> 200 (2538 ms)
+2026-11-18 15:07:29 | PREDICT trip=00000052 mode=real model=xgb points=262 top1=0.9656 clf_top1=0.9733 route_f1=0.9793 latency=151ms client=10.218.43.14
+2026-11-18 15:07:29 | 10.218.43.14 POST /predict -> 200 (153 ms)
+2026-11-18 15:07:32 | PREDICT trip=00000056 mode=real model=xgb points=3958 top1=0.931 clf_top1=0.9074 route_f1=0.9694 latency=2670ms client=10.218.43.14
+2026-11-18 15:07:32 | 10.218.43.14 POST /predict -> 200 (2679 ms)
+2026-11-18 15:07:32 | PREDICT trip=00000065 mode=real model=xgb points=768 top1=0.8607 clf_top1=0.8359 route_f1=0.9429 latency=380ms client=10.218.43.14
+2026-11-18 15:07:32 | 10.218.43.14 POST /predict -> 200 (384 ms)
+2026-11-18 15:07:33 | PREDICT trip=00000076 mode=real model=xgb points=1486 top1=0.8984 clf_top1=0.8863 route_f1=0.9222 latency=984ms client=10.218.43.14
+2026-11-18 15:07:33 | 10.218.43.14 POST /predict -> 200 (988 ms)
+2026-11-18 15:07:37 | PREDICT trip=00000077 mode=real model=xgb points=3911 top1=0.7338 clf_top1=0.7164 route_f1=0.8481 latency=3617ms client=10.218.43.14
+2026-11-18 15:07:37 | 10.218.43.14 POST /predict -> 200 (3630 ms)
+2026-11-18 15:07:38 | PREDICT trip=00000091 mode=real model=xgb points=874 top1=0.8902 clf_top1=0.8627 route_f1=0.9489 latency=1099ms client=10.218.43.14
+2026-11-18 15:07:38 | 10.218.43.14 POST /predict -> 200 (1107 ms)
+2026-11-18 15:08:48 | 10.218.43.14 GET /health -> 200 (4 ms)
+2026-11-18 15:08:48 | 10.218.43.14 GET /trips -> 200 (4 ms)
+2026-11-18 15:09:21 | 10.218.43.14 GET /health -> 200 (7 ms)
+2026-11-18 15:09:21 | 10.218.43.14 GET /trips -> 200 (4 ms)
+2026-11-18 15:09:29 | PREDICT trip=00000056 mode=real model=xgb points=3958 top1=0.931 clf_top1=0.9074 route_f1=0.9694 latency=6197ms client=10.218.43.14
+2026-11-18 15:09:29 | 10.218.43.14 POST /predict -> 200 (6211 ms)
+2026-11-18 15:10:26 | 127.0.0.1 GET /docs -> 200 (0 ms)
+2026-11-18 15:10:27 | 127.0.0.1 GET /openapi.json -> 200 (0 ms)
+2026-11-18 15:10:44 | 10.218.43.14 GET /health -> 200 (5 ms)
+2026-11-18 15:10:44 | 10.218.43.14 GET /trips -> 200 (5 ms)
