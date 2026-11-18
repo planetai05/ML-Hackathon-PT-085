@@ -23,6 +23,19 @@ DEFAULTS = {
 }
 
 
+def fmt_value(v) -> str:
+    """Display text for the UI details table: '–' if missing, 2 decimals for fractional numbers."""
+    if v is None:
+        return "–"
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float) and not v.is_integer():
+        return f"{v:,.2f}"
+    if isinstance(v, (int, float)):
+        return f"{v:,.0f}"
+    return str(v)
+
+
 class HealthContractError(ValueError):
     """The /health body does not come from a compatible PathSnap API."""
 

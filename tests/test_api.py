@@ -126,3 +126,26 @@ def test_real_predictor_end_to_end():
         tid = c.get("/trips").json()["trips"][0]
         j = c.post("/predict", json={"trip_id": tid}).json()
         assert j["mode"] == "real" and len(j["predicted_arcs"]) > 0 and j["metrics"]["top1_accuracy"] is not None
+
+
+def test_predict_with_missing_trips_dir_is_503(tmp_path):
+    with client(str(tmp_path / "nope")) as c:
+        r = c.post("/predict", json={"trip_id": "00000001"})
+        assert r.status_code == 503 and r.json()["error"] == "trips_dir_missing"
+
+
+def test_swagger_and_openapi_document_all_endpoints(trips_dir):
+    with client(trips_dir) as c:
+        assert c.get("/docs").status_code == 200
+        assert c.get("/", follow_redirects=False).headers["location"] == "/docs"
+        spec = c.get("/openapi.json").json()
+        assert {"/health", "/trips", "/predict"} <= set(spec["paths"])
+        assert {"PredictRequest", "PredictResponse", "HealthResponse", "ErrorResponse"} <= set(spec["components"]["schemas"])
+
+
+def test_e2e_checker_reports_unreachable_api_clearly():
+    import subprocess
+    import sys
+    r = subprocess.run([sys.executable, "scripts/e2e_check.py", "--api", "http://127.0.0.1:9", "--out", os.devnull],
+                       capture_output=True, text=True, timeout=60)
+    assert r.returncode != 0 and "Cannot reach the API at http://127.0.0.1:9" in r.stderr and "Traceback" not in r.stderr

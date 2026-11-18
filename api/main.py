@@ -167,6 +167,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if state.predictor is None:
             _err(503, "predictor_unavailable", f"No predictor loaded ({state.error or 'unknown error'}). "
                  "Export artifacts or start with PATHSNAP_MOCK=1 for UI development.")
+        if not os.path.isdir(s.trips_dir):
+            _err(503, "trips_dir_missing", f"Trips folder not found: {os.path.abspath(s.trips_dir)} (set PATHSNAP_TRIPS_DIR)")
         if req.trip_id not in list_trip_ids(s.trips_dir):
             _err(404, "unknown_trip", f"Trip '{req.trip_id}' not found in {os.path.abspath(s.trips_dir)}")
         trip_dir = os.path.join(s.trips_dir, req.trip_id)
