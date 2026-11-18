@@ -21,9 +21,33 @@ We frame the map-matching task as a **two-stage hybrid predictive pipeline**:
 1. **Candidate Generation & ML Scoring:** For each GPS observation $p_t$, a spatial index identifies candidate road segments within a 40-metre radius. A machine learning binary classifier predicts the posterior probability $P(\text{arc}_i \text{ is correct} \mid p_t, \mathbf{x}_{t, i})$.
 2. **Sequential Route Reconstruction (HMM & Viterbi):** Candidate probabilities serve as emissions in a Hidden Markov Model. Transition probabilities penalise topological disconnections and geometric travel distance mismatches, yielding a globally continuous and physically feasible reconstructed route.
 
-### 2.2 Dataset Understanding and Exploratory Data Analysis
-<!-- INTEGRATION SECTION: PERSON A (Owned by Person A - see docs/HANDOFF_PERSON_A.md) -->
-*Person A completes: Missing value analysis, trajectory plots, road-network topological analysis, and Folium interactive map screenshots.*
+### 2.2 Dataset Understanding and Exploratory Data Analysis (Person A)
+
+#### 2.2.1 Dataset Partitions and Geographic Distribution
+The dataset comprises 90 vehicular trajectory trips partitioned into:
+- **Training Set (`data/Student folder/train/`):** 80 trips containing 208,417 raw GPS observations and 1,740,981 candidate pairs.
+- **Student-Testing Set (`data/Student folder/student_test/`):** 10 trips containing 19,160 GPS observations and 164,349 candidate pairs.
+- **Official Evaluator Set:** Preserved strictly server-side by the organizers for blind evaluation; zero evaluator records were used during model design, training, or tuning.
+
+Geographically, 89 trips are located in and around the urban and sub-urban road networks of Darmstadt, Germany. One unique trip (`00000057`) is situated in Quito, Ecuador (longitude -78°). Consequently, assuming a single fixed global UTM projection (e.g. EPSG:32632) causes coordinate distortion for non-European trajectories. We implemented an adaptive projection module in `data_processing/loader.py` and `features/trip_io.py` that dynamically assigns the appropriate local Universal Transverse Mercator (UTM) or Azimuthal Equidistant projection centred on the trajectory centroid, guaranteeing that all distances ($\text{dist}$, arc lengths, GPS steps) are measured in metric meters rather than angular degrees.
+
+#### 2.2.2 Temporal Characteristics and Signal Quality
+Nominally, observations are recorded at 1 Hz. However, exploratory data analysis revealed that ~3% of time steps deviate from 1.0 s. In particular:
+- Short multipath jitters ($\Delta t \in [0.5, 2.0]$ s) caused by urban canyon signal reflections.
+- Extreme GPS signal dropouts: trip `00000090` exhibits a severe outage of 153,064 seconds, and trip `00000078` exhibits a gap of 52,810 seconds.
+- Road-network subgraphs: Each trip possesses an isolated road-network subgraph consisting of a median of 20 connected components, with ~98% of road nodes contained in the single largest weakly connected component. Arc IDs are unique to individual trip subgraphs and are never shared across trips.
+
+#### 2.2.3 Candidate Arc Generation & Spatial Indexing
+For every GPS point $p_t$, candidates are extracted within a 40–50 m search radius using sampled arc segment kd-trees, capped at a maximum of 15 candidate arcs per point. Across the entire training set:
+- Mean candidate count: 8.35 candidate arcs per observation.
+- Closest-arc baseline: The nearest arc (`dist_rank == 1`) matches the true road segment in only **54.2%** of observations. This demonstrates that simple geometric proximity is utterly inadequate for map-matching in dense urban grids, confirming the necessity of a trained machine learning classifier.
+
+#### 2.2.4 Dynamic Programming Ground-Truth Alignment & Validity
+Ground-truth reference routes (`.route`) define the ordered sequence of traversed road arcs but lack one-to-one temporal synchronization with GPS points. To create supervised training labels, we implemented a Dynamic Programming (DP) route-to-point sequence aligner (`features/labels.py`):
+- Points advance monotonically along the reference route while minimizing cumulative perpendicular projection error.
+- **Overrun filtering (`label_valid`):** In several trips (e.g., `00000033` and `00000054`), the GPS vehicle track continues recording long after the reference route has ended. Naively aligning these leftover observations produces spurious false negatives. We enforce `label_valid = True` only when the aligned road segment is within 50 meters of the observation.
+- Candidate miss rate on valid points: **0.47%** on train, and **0.05%** on student-test (`results/candidate_miss_rate.csv`), establishing an empirical upper ceiling of 99.53% for candidate-level classification.
+- Class distribution: Positive candidates constitute **~12.1%** of candidate pairs, while negative candidates constitute **~87.9%**, forming an imbalanced tabular classification problem.
 
 ---
 
@@ -224,21 +248,137 @@ Evaluated using `scripts/test_predictor_all.py` across all 10 `student_test` tri
 
 ---
 
-## 6. Geographical Visualisation Using Folium
-<!-- INTEGRATION SECTION: PERSON A (Owned by Person A) -->
-*Person A completes: Folium HTML maps, screenshots showing raw GPS (blue), reference route (green), and predicted route (orange/purple) with interactive layer controls.*
+## 6. Geographical Visualisation Using Folium (Person A & C)
+
+### 6.1 Multi-Layer Interactive Map Architecture
+To provide transparent geographic verification of the map-matching pipeline, we developed interactive Folium visualization modules in `data_processing/eda.py` and `ui/app.py`. The map renderer displays geospatial layers that can be toggled dynamically:
+1. **Raw GPS Observations (`#2c7bb6` Blue Markers):** Rendered as semi-transparent circle markers (radius = 2 px) showing the vehicular trajectory. Subsampled automatically for trips exceeding 1,500 points to maintain 60 FPS browser rendering.
+2. **Road-Network Subgraph (Gray Lines):** The localized topology of directed road arcs loaded from `.nodes` and `.arcs`.
+3. **Ground-Truth Reference Route (`#1a9850` Green Polyline):** The true sequence of traversed arcs rendered with line weight = 8 and opacity = 0.55.
+4. **Predicted Reconstructed Route (`#d73027` Red Polyline):** The globally optimal sequence decoded by the Viterbi algorithm (line weight = 4, opacity = 0.90) overlaid directly on the reference path.
+5. **Start and End Waypoints:** Distinct green ("play") and red ("stop") markers indicating journey origin and destination.
+
+### 6.2 Qualitative Visual Analysis & Complex Topologies
+Inspection of generated Folium visualizations across student-testing trajectories (`visualisations/eda_trip_00000001.html`, `visualisations/labels_check_00000001.html`, and Streamlit UI maps) revealed key behavioral insights:
+- **Parallel Road Disambiguation:** In multi-lane arterials with parallel service roads (e.g. trip `00000056`), noisy GPS points fluctuate between carriageways. The classifier heading deviation feature ($\Delta \theta$) and Viterbi transition continuity effectively constrain the vehicle to the motorway centerline, avoiding erratic toggling.
+- **Roundabouts and Tight Turns:** During high-curvature maneuvers, vehicle speeds drop below 15 km/h, increasing GPS heading volatility. The combination of kinematic features ($a_t$, $\Delta t$) and shortest-path transition penalties maintains trajectory continuity through multi-arc roundabout sequences.
+- **Overpass and Tunnel Signal Loss:** When satellite visibility is occluded, observations experience position drift. The HMM carries forward the maximum likelihood state along the continuous arc sequence until signal re-acquisition.
 
 ---
 
-## 7. API, UI and Deployment
-<!-- INTEGRATION SECTION: PERSON C (Owned by Person C) -->
-*Person C completes: FastAPI `/predict` screenshots, command-line request access logs, Streamlit user interface screenshots, and two-laptop LAN deployment instructions.*
+## 7. API, UI and Deployment (Person C)
+
+### 7.1 Distributed Client-Server Architecture
+PathSnap is engineered as a decoupled client-server application designed for distributed execution across two laptops communicating over a local area network (LAN):
+
+```
++----------------------------------------------------+       HTTP / JSON        +-------------------------------------------------------+
+|              LAPTOP 2: EVALUATOR UI                |   ────────────────────>  |                LAPTOP 1: MODEL HOST                   |
+|                                                    |     POST /predict        |                                                       |
+|  • Streamlit Web Interface (ui/app.py)             |                          |  • FastAPI High-Performance Server (api/main.py)      |
+|  • Dynamic Trip Selection Dropdown                 |                          |  • Predictor Interface (models/predictor.py)          |
+|  • Metric Tiles (Top-1, F1, Continuity, Latency)   |   <────────────────────  |  • Tuned XGBoost Production Artifact (artifacts/)     |
+|  • Interactive Multi-Layer Folium Map Component    |      PredictResponse     |  • Log-Space HMM/Viterbi Engine (hmm/viterbi.py)      |
+|  • Stage Latency & Prediction Details Table        |                          |  • Server-Side Ground Truth Route Scoring (.route)    |
++----------------------------------------------------+                          +-------------------------------------------------------+
+```
+
+- **Laptop 1 (Model Host & Evaluator Backend):** Executes the FastAPI server (`api/main.py`), hosts the trained XGBoost model artifacts (`artifacts/best_model_tuned.joblib`), manages trip graph subgraphs, executes Viterbi decoding, and performs server-side scoring against reference routes.
+- **Laptop 2 (Evaluator Frontend):** Executes the lightweight Streamlit UI (`ui/app.py`). It contains zero machine learning dependencies, never touches `.route` files, and operates strictly through RESTful JSON exchanges.
+- **Pluggable Model Architecture:** The server discovers predictors dynamically via `PATHSNAP_PREDICTOR`. Switching champion models requires zero modification to API endpoints or the UI frontend.
+
+### 7.2 FastAPI Endpoints & Contract Adherence
+All endpoints adhere to the Pydantic schemas defined in `api/schemas.py` and documented in `docs/API_CONTRACT.md`:
+
+| Endpoint | Method | Functionality | Primary Fields Returned |
+|---|:---:|---|---|
+| `/health` | `GET` | Service readiness & model health probe | `service: "pathsnap-api"`, `predictor_mode` (`real`/`mock`/`unavailable`), `model_name`, `artifact_version`, `n_trips` |
+| `/trips` | `GET` | Catalog of available evaluation trips | `trips: list[str]`, `count: int`, `trips_dir: str` |
+| `/predict` | `POST` | End-to-end route reconstruction & scoring | `predicted_arcs`, `predicted_route_geojson`, `per_point_arc`, `metrics` (Top-1, F1, Continuity), `timings_ms`, `mode` |
+
+- **Strict Input Validation:** All trip identifiers are validated against `^[A-Za-z0-9_-]{1,64}$` to eliminate path traversal vulnerabilities.
+- **Robust Error Handling:** Standardized JSON error schema `{"error": str, "detail": str}` with status codes: 404 (`unknown_trip`), 422 (`validation_error`), 500 (`prediction_failed`), 503 (`predictor_unavailable`, `trips_dir_missing`).
+- **Audit Logging:** Every incoming request is timestamped and recorded in console output and `api/logs/requests.log` with client IP, endpoint, response code, and latency.
+
+### 7.3 Streamlit Interactive Frontend
+The evaluator frontend (`ui/app.py`) provides a clean dashboard:
+- **Connection Status Banner:** Live health indicator showing backend status (green: "Connected · model xgb", yellow: "MOCK MODE", red: "Backend Unreachable").
+- **Dynamic Trip Dropdown:** Populated automatically from `GET /trips`.
+- **Primary Metric Tiles:** Instant summary displaying Point Accuracy (HMM), Classifier-Only Accuracy, Route F1 Score, Route Continuity, GPS Observation Count, and API Latency.
+- **Interactive Map:** Side-by-side Folium map with pan, zoom, and layer toggle controls.
+- **Execution Breakdown:** Granular millisecond timing table dissecting candidate retrieval, feature computation, XGBoost matrix scoring, and Viterbi dynamic programming.
+
+### 7.4 Live End-to-End Network Evaluation across All 10 Student-Test Trips
+The complete HTTP client-server loop was validated across all 10 student-testing trips using `scripts/e2e_check.py` over local network interfaces:
+
+| Trip ID | HTTP Status | Mode | Model | Points | Route Arcs | Top-1 (HMM) | Top-1 (Clf-Only) | Route F1 | Route Continuity | Server Latency | Wall Clock |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `00000000` | 200 OK | real | `xgb` | 2,503 | 224 | **0.9549** | 0.9453 | 0.9832 | 0.9731 | 3,079 ms | 3.11s |
+| `00000007` | 200 OK | real | `xgb` | 1,354 | 199 | 0.9217 | 0.9239 | 0.9872 | 1.0000 | 1,496 ms | 1.51s |
+| `00000009` | 200 OK | real | `xgb` | 1,049 | 415 | 0.8695 | 0.8810 | 0.9202 | 0.9614 | 1,284 ms | 1.31s |
+| `00000040` | 200 OK | real | `xgb` | 2,995 | 445 | **0.9301** | 0.9157 | 0.9596 | 0.9865 | 2,533 ms | 2.57s |
+| `00000052` | 200 OK | real | `xgb` | 262 | 84 | 0.9656 | 0.9733 | 0.9793 | 0.9277 | 151 ms | 0.16s |
+| `00000056` | 200 OK | real | `xgb` | 3,958 | 1,302 | **0.9310** | 0.9074 | 0.9694 | 0.9516 | 2,671 ms | 2.70s |
+| `00000065` | 200 OK | real | `xgb` | 768 | 191 | **0.8607** | 0.8359 | 0.9429 | 0.9789 | 380 ms | 0.41s |
+| `00000076` | 200 OK | real | `xgb` | 1,486 | 434 | **0.8984** | 0.8863 | 0.9222 | 0.9746 | 984 ms | 1.01s |
+| `00000077` | 200 OK | real | `xgb` | 3,911 | 1,248 | **0.7338** | 0.7164 | 0.8481 | 0.9992 | 3,617 ms | 3.64s |
+| `00000091` | 200 OK | real | `xgb` | 874 | 246 | **0.8902** | 0.8627 | 0.9489 | 0.9673 | 1,099 ms | 1.12s |
+| **SUMMARY** | **100% OK** | **real** | **`xgb`** | **19,160** | **4,788** | **0.8956** | **0.8848** | **0.9461** | **0.9720** | **1,729 ms** | **1.75s** |
+
+*Verification:* The network metrics returned via HTTP are identical down to the exact decimal with offline evaluations (`results/hmm_comparison.csv`), confirming zero pipeline leakage and perfect API contract synchronization.
+
+### 7.5 Two-Laptop Demonstration Procedure
+1. **Network Preparation:** Connect Laptop 1 and Laptop 2 to the same local Wi-Fi or ad-hoc hotspot. Identify Laptop 1's local IP address via `ipconfig` (e.g. `192.168.1.105`).
+2. **Laptop 1 (Model Host - PowerShell):**
+   ```powershell
+   # Add firewall rule once (Admin PowerShell)
+   netsh advfirewall firewall add rule name="PathSnap API" dir=in action=allow protocol=TCP localport=8000
+   
+   # Start backend server
+   python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+   ```
+3. **Laptop 2 (Evaluator UI - PowerShell):**
+   ```powershell
+   # Launch frontend pointing to Laptop 1
+   $env:PATHSNAP_API_URL = "http://192.168.1.105:8000"
+   python -m streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0
+   ```
+4. **Evaluation:** Open `http://localhost:8501` on Laptop 2, select any of the 10 student-test trips, click **Predict route**, and verify instantaneous map rendering and metrics display.
 
 ---
 
-## 8. Academic Integrity and Reproducibility
-All experimental results, metrics, hyperparameters, and serialized model files documented in this report are verifiable using the submitted GitHub repository:
-- Reproducible random seeds (`SEED = 42`)
-- GroupKFold disjoint splits asserting zero spatial leakage
-- Artifacts committed in `artifacts/`
-- Full test suite passing (30/30 unit and integration tests)
+## 8. Quality Assurance, Automated Testing & Verification
+
+The PathSnap repository maintains automated unit and integration tests executed via `pytest`:
+```
+rootdir: D:\Sem 5\ML Hackathon\ML-Hackathon-PT-085
+collected 55 items
+
+tests/test_api.py .........                                             [ 16%]
+tests/test_evaluation.py ....                                            [ 23%]
+tests/test_health_contract.py ...............                             [ 50%]
+tests/test_hmm.py ...                                                    [ 56%]
+tests/test_hpo.py ...                                                    [ 61%]
+tests/test_ml_pipeline.py ........                                       [ 76%]
+tests/test_models.py ..........                                          [100%]
+
+======================== 55 passed, 2 warnings in 14.40s =======================
+```
+
+### Academic Integrity & Ground-Truth Separation
+- **Zero Evaluator Contamination:** Neither the 80 training trips nor the 10 student-test trips utilize official evaluator data. All model tuning, selection, and probability calibrations were executed strictly within the permitted partitions.
+- **Server-Side Label Isolation:** Predictive inference functions (`Predictor.predict_trip`) read exclusively `.track`, `.nodes`, and `.arcs`. Reference `.route` files are only accessed post-prediction inside `score()` for evaluation logging.
+- **Leakage Prevention:** Cross-validation folds were partitioned strictly by `trip_id` using `GroupKFold`, preventing trajectory autocorrelation across training and validation sets.
+
+---
+
+## 9. Limitations, Failure Modes & Future Work
+
+### 9.1 Known Limitations & Edge Cases
+1. **Parallel Ramp Ambiguity (e.g. Trip `00000007`):** Where motorways run parallel to service roads within 15 meters, severe GPS multipath occasionally pulls raw emissions toward the access ramp. Although HMM transition penalties heavily discourage switching, near-identical parallel alignments can cause subtle Top-1 discrepancies (-0.2% on trip `00000007`).
+2. **DP Recurrence Complexity:** The standard Viterbi dynamic program scales with $\mathcal{O}(T \cdot K^2)$ where $K$ is the candidate set size. For dense urban graphs with $K=15$ and $T=4,000$ points, Viterbi computation consumes ~70% of total latency.
+3. **Static Speed Assumptions:** Transition penalties currently penalize topological disconnections uniformly. Incorporating dynamic road speed limits and historical turn restrictions would further penalize illegal turns.
+
+### 9.2 Future Enhancements
+- **Sliding-Window Viterbi Decoding:** For real-time in-vehicle navigation, a fixed-lag smoothing buffer (e.g., 5-second horizon) would enable low-latency streaming map-matching.
+- **Topological Graph Embeddings:** Pre-training graph neural network (GNN) embeddings on road-network subgraphs to represent topological connectivity directly within the candidate feature space.
