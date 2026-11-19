@@ -50,6 +50,7 @@ class NumberedCanvas(canvas.Canvas):
         # Header (pages > 1)
         if self._pageNumber > 1:
             self.drawString(54, 755, "PathSnap Technical Report — Team PT-085")
+            self.drawRightString(558, 755, "https://github.com/planetai05/ML-Hackathon-PT-085")
             self.setStrokeColor(colors.HexColor("#cbd5e1"))
             self.setLineWidth(0.5)
             self.line(54, 750, 558, 750)
@@ -82,6 +83,8 @@ def clean_markdown_inline(text: str) -> str:
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"(?<![\w*])\*([^*\s][^*]*?)\*(?![\w*])", r"<i>\1</i>", text)
     text = re.sub(r"\x00(\d+)\x00", lambda m: f'<font name="Courier" color="#0369a1">{codes[int(m.group(1))]}</font>', text)
+    # Hyperlinks for URLs
+    text = re.sub(r'(https://github\.com/[^\s<"\'\)]+)', r'<a href="\1" color="#0369a1"><u>\1</u></a>', text)
     return text
 
 

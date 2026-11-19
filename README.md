@@ -14,6 +14,7 @@ Raw GPS Observations → Spatial Index Candidate Generation (40m radius) → 24 
 | **Part A** | EDA, UTM Projection, Spatial Indexing, Candidate Generation, DP Label Alignment, Folium Maps | **Person A** | **Completed** (`docs/HANDOFF_PERSON_A.md`) |
 | **Part B** | ML Model Benchmark (7 models), GroupKFold, Model Selection, Optuna Bayesian HPO, Production Artifacts | **Person B** | **Completed** (`docs/HANDOFF_PERSON_C.md`) |
 | **Part C** | HMM/Viterbi Decoder, FastAPI Server (`/health`, `/trips`, `/predict`), Streamlit Dashboard, LAN Deployment | **Person C** | **Completed** (`docs/API_UI.md`) |
+| **Part D** | Code Review & Repository QA, Verification of Pushed Code, Automated Test Suite Execution (59/59 pytest) | **Person D (Anirudh)** | **Completed** |
 
 ---
 

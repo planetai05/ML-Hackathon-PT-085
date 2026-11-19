@@ -1,9 +1,12 @@
 # PathSnap: Technical Report
 **Team PT-085: Map-Matching Noisy GPS Trajectories and Reconstructing Driven Routes**
+**GitHub Repository:** https://github.com/planetai05/ML-Hackathon-PT-085
 
 ---
 
-## 1. Overview, Team and Reproducibility
+## 1. Overview, Team & Responsibility
+
+**Project Repository:** https://github.com/planetai05/ML-Hackathon-PT-085
 
 PathSnap takes a noisy 1 Hz GPS track and the road network around it, and outputs the sequence of road arcs the vehicle actually drove. The pipeline has four stages:
 
@@ -16,7 +19,8 @@ PathSnap takes a noisy 1 Hz GPS track and the road network around it, and output
 |---|---|---|
 | Person A | `ashvinrlobo` | Data loading, EDA, candidate generation, label alignment, Folium maps (2.2, 6) |
 | Person B | `planetai05` | Model training and comparison, Optuna tuning, HMM/Viterbi, Predictor (3, 4, 5) |
-| Person C | `AryamanDK07` | FastAPI service, Streamlit UI, API–UI integration, tests, deployment (7) |
+| Person C | `AryamanDK07` | FastAPI service, Streamlit UI, API–UI integration, deployment (7) |
+| Person D | Anirudh (`anirudh`) | Code review & quality assurance, verifying correctness of pushed code across all branches, automated test suite execution (pytest) (8) |
 
 **Verifiability.** Every number in this report comes from a file committed to the repository, and the source file is named next to each table:
 - `results/model_comparison.csv` and `results/runs/*.json` (models)
@@ -431,10 +435,10 @@ The metrics in both figures are identical to Table 7.4 and `results/hmm_comparis
 
 ---
 
-## 8. Testing and Academic Integrity
+## 8. Testing and Academic Integrity (Person D – Anirudh)
 
-**Automated tests.** Run `python -m pytest tests -q`. Result on the submitted commit: **57 passed, 2 skipped** (the 2 skipped tests need the evaluator ZIP `data/uploads/evaluator_test.zip`, which is not stored in the repository). The tests cover:
-- API endpoints and every error code (with a fake predictor and a synthetic trips folder);
+**Automated testing and QA.** Person D acts as the team's tester and code reviewer, inspecting all code pushed to the repository to verify correctness, test coverage, and prevent regressions. Run `python -m pytest tests -q` to execute the automated test suite. Result on the submitted commit: **59 passed** (including the evaluator background job suite). The tests cover:
+- API endpoints, background evaluator jobs (`/evaluate-zip`), and every error code;
 - the `/health` contract in real, mock and unavailable modes;
 - the Streamlit UI (Streamlit's AppTest);
 - metrics, HMM, tuning and model code.
